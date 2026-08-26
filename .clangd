@@ -1,0 +1,5 @@
+# clangd config: match the course build's include paths.
+CompileFlags:
+  Add:
+    - -Isrc
+    - -Itools

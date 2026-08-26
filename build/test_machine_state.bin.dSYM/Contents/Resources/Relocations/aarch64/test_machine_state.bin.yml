@@ -1,0 +1,5 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     '/Users/nugroho.widodo/Development/zero-to-expert/build/test_machine_state.bin'
+relocations:     []
+...
