@@ -11,7 +11,7 @@ permissions:
 jobs:
   course-engine:
     name: Validate course engine
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     timeout-minutes: 5
 
     steps:
