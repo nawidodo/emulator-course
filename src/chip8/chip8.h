@@ -6,8 +6,8 @@
 // microcomputer. Its entire state is small: 4 KiB of RAM, sixteen 8-bit
 // general-purpose registers, a program counter, an index register, TWO
 // 8-bit TIMERS (delay + sound) that will later be ticked at 60 Hz completely
-// independently of CPU instruction rate, a 16-level call stack (course model,
-// see blueprint/LOCAL_DEVIATIONS.md D1), a 16-key keypad, and a 64x32
+// independently of CPU instruction rate, a 12-entry call stack (course model,
+// see blueprint/01_CHIP8.md), a 16-key keypad, and a 64x32
 // one-bit logical framebuffer.
 //
 // YOUR JOB this stage: define the complete, deterministic power-on state and
@@ -46,9 +46,8 @@ typedef struct {
     uint8_t sound_timer;
 
     // Call stack: one 16-bit return address per nested call.
-    // Course model: 16 entries (override of the blueprint's 12-entry model —
-    // see blueprint/LOCAL_DEVIATIONS.md, D1). SP counts valid entries (0..16).
-    uint16_t stack[16];
+    // Course model: 12 entries, with an 8-bit SP in the valid range 0..12.
+    uint16_t stack[12];
     uint8_t SP;
 
     // RAM: 4096 bytes, addresses 0x000-0xFFF.

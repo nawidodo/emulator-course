@@ -24,6 +24,7 @@ from pathlib import Path, PurePosixPath
 ROOT = Path(__file__).resolve().parent.parent
 COURSE_CONFIG = Path("config/course.json")
 OWNERSHIP_CATEGORIES = ("student_owned", "agent_owned", "grader_owned")
+CHIP8_STACK_DEPTH = 12
 
 
 class Reporter:
@@ -419,16 +420,40 @@ def validate_chip8_01_facts(catalog, reporter):
     stage_doc = repo_path("course/chip8/CHIP8-01/STAGE.md")
     if header.is_file():
         text = header.read_text(encoding="utf-8")
-        for expected, label in (("V0..VF", "V0..VF"), ("stack[16]", "16-entry stack"), ("memory[4096]", "4096-byte memory")):
+        expected_facts = (
+            ("V0..VF", "V0..VF"),
+            (f"stack[{CHIP8_STACK_DEPTH}]", "12-entry stack"),
+            ("memory[4096]", "4096-byte memory"),
+        )
+        for expected, label in expected_facts:
             if expected not in text:
                 reporter.error(header.relative_to(ROOT), "content", label, "missing")
+        legacy_stack = f"stack[{CHIP8_STACK_DEPTH + 4}]"
+        for forbidden, label in (
+            (legacy_stack, "obsolete 16-entry stack wording"),
+            ("16 x 16-bit", "obsolete 16-entry stack wording"),
+            ("16-level", "obsolete 16-level stack wording"),
+            ("16 entries", "obsolete 16-entry stack wording"),
+        ):
+            if forbidden in text:
+                reporter.error(header.relative_to(ROOT), "content", f"without {label}", forbidden)
     if stage_doc.is_file():
         text = stage_doc.read_text(encoding="utf-8")
+        expected_facts = (
+            ("12 x 16-bit", "12-entry stack"),
+        )
+        for expected, label in expected_facts:
+            if expected not in text:
+                reporter.error(stage_doc.relative_to(ROOT), "content", label, "missing")
+        legacy_stack = f"stack[{CHIP8_STACK_DEPTH + 4}]"
         for forbidden, label in (
             ("V0..VE", "obsolete V0..VE wording"),
-            ("12 x 16-bit", "obsolete 12-entry stack wording"),
             ("13 x 16-bit", "obsolete 13-entry stack wording"),
-            ("quarter of the RAM", "incorrect framebuffer arithmetic"),
+            ("16 x 16-bit", "obsolete 16-entry stack wording"),
+            ("16-level", "obsolete 16-level stack wording"),
+            ("16 levels", "obsolete 16-level stack wording"),
+            ("16 entries", "obsolete 16-entry stack wording"),
+            (legacy_stack, "obsolete 16-entry stack wording"),
         ):
             if forbidden in text:
                 reporter.error(stage_doc.relative_to(ROOT), "content", f"without {label}", forbidden)

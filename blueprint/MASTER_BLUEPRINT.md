@@ -62,9 +62,14 @@ make next
 
 ## Stage Rules
 
-Only the active stage may be generated or unlocked.
+Authoring and learner progression are separate gates:
 
-The agent must not generate later-stage solutions in advance.
+- Do not author stage N+1 until stage N course material is structurally
+  validated and frozen.
+- Only objective certification may unlock or activate the next stage for the
+  learner.
+- Future authored files do not grant learner access or count as certification.
+- The agent must not generate later-stage learner solutions in advance.
 
 Each stage should ideally focus on one new hardware idea.
 

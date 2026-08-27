@@ -26,32 +26,38 @@ AGENT_START_PROMPT.md
 
 Do not give it `02_8080_SPACE_INVADERS.md` until CHIP-8 is certified complete.
 
-## Rule 2 — One Stage at a Time
+## Rule 2 - One Stage at a Time
 
-The agent must create only the current stage's starter material, tests, challenge, and course instructions.
+Authoring and learner progression are separate gates:
 
-Do not let it generate the complete emulator ahead of you.
+- Authoring rule: Do not author CHIP8-N+1 until CHIP8-N course material is
+  structurally validated and frozen.
+- Learner rule: the learner must not activate or access the next stage until
+  certification succeeds.
+- Future stage files may exist for authoring and validation; their presence
+  does not unlock the learner.
+- Never generate later-stage learner solutions in advance.
 
 The intended loop is:
 
 ```text
 agent introduces stage
-        ↓
+        |
 you implement TODOs
-        ↓
+        |
 run visible tests
-        ↓
+        |
 you debug
-        ↓
+        |
 agent gives hints only when needed
-        ↓
+        |
 visible tests pass
-        ↓
+        |
 challenge
-        ↓
+        |
 hidden/local certification test
-        ↓
-next stage
+        |
+next stage is unlocked, then activated
 ```
 
 ## Rule 3 — Your Repository Should Evolve Naturally

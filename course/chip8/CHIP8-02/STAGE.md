@@ -2,19 +2,20 @@
 
 ## Objective
 
-Make the memory map real: font sprites in the interpreter area and ROM bytes
-in the program area. After this stage `chip8_init` leaves fonts intact and
-you can load any ROM that fits in `0x200-0xFFF` with bounds checks.
+Make memory ownership and ROM loading explicit. The 80-byte font table is
+already part of the CHIP8-01 canonical power-on image; this stage refactors
+its installation behind `chip8_load_font` and adds safe ROM bounds checks.
+After this stage `chip8_init` leaves fonts intact and you can load any ROM
+that fits in `0x200-0xFFF`.
 
 ## Hardware facts
 
 The CHIP-8 address space is `0x000-0xFFF` (4096 bytes). Austin Morlan and
 CaffeineViking (`chip-8/doc/specification.md`, based on Cowgod) agree:
-
-```
-0x000-0x1FF  512 B  reserved — interpreter (never written by programs)
-0x050-0x0A0   80 B  font sprites, 16 chars × 5 bytes, stored by emulator at init
-0x200-0xFFF 3584 B  program (ROM) — first instruction at 0x200
+```text
+0x000-0x1FF  512 B  reserved - interpreter (never written by programs)
+0x050-0x09F   80 B  font sprites, 16 chars x 5 bytes, stored by emulator at init
+0x200-0xFFF 3584 B  program (ROM) - first instruction at 0x200
 ```
 
 Font sprites (hex `0-F`), 5 bytes each, as used by `LD F, Vx`:
@@ -38,10 +39,12 @@ Font sprites (hex `0-F`), 5 bytes each, as used by `LD F, Vx`:
 0xF0 0x80 0xF0 0x80 0x80  // F
 ```
 
-At offset `0x050 + c*5`.
+`PC` still resets to `0x200`. `I`, `SP`, timers etc. remain as defined by
+CHIP8-01, including the 12-entry stack (`stack[12]`, `SP 0..12`).
 
-`PC` still resets to `0x200`. `I`, `SP`, timers etc. unchanged from CHIP8-01
-(16-level stack `stack[16]`, `SP 0..16`).
+CHIP8-01 defines the canonical initial memory image, including the font bytes.
+This stage refactors that existing initialization behind `chip8_load_font`; it
+does not introduce fonts as a new machine-state concept.
 
 ## API
 
@@ -52,10 +55,18 @@ void chip8_load_font(chip8 *m);
 bool chip8_load_rom(chip8 *m, const uint8_t *data, size_t size);
 ```
 
-* `chip8_load_font` — copy the 80 font bytes above to `memory[0x050..0x09F]`. Must be idempotent and must not touch `memory[0x200..]` or registers.
-* `chip8_load_rom` — copy `size` bytes from `data` to `memory[0x200..0x200+size-1]`. Return `false` and leave machine unchanged if `data==NULL`, `size==0`, or `0x200+size > 0x1000` (would overflow `0xFFF`). On success return `true`.
+* `chip8_load_font` - copy the existing canonical 80 font bytes above to
+  `memory[0x050..0x09F]`. Must be idempotent and must not touch
+  `memory[0x200..]` or registers.
+* `chip8_load_rom` - copy `size` bytes from `data` to
+  `memory[0x200..0x200+size-1]`. Return `false` and leave machine unchanged if
+  `data==NULL`, `size==0`, or `0x200+size > 0x1000` (would overflow `0xFFF`).
+  On success return `true`.
 
-`chip8_init` must be updated to **call `chip8_load_font`** after clearing state so a fresh machine already has fonts. It must still zero `V`, `I`, `SP`, `stack`, timers, keypad, framebuffer and set `PC=0x200`.
+`chip8_init` must be updated to call `chip8_load_font` after clearing state so
+a fresh machine retains the already-defined canonical font image. It must
+still zero `V`, `I`, `SP`, `stack`, timers, keypad, framebuffer and set
+`PC=0x200`.
 
 ## Tasks
 
@@ -74,7 +85,10 @@ bool chip8_load_rom(chip8 *m, const uint8_t *data, size_t size);
 
 ## Challenge — font + ROM checksum
 
-`tests/challenge/...` loads fonts, then a 3-byte ROM `0x12 0x34 0x56` at `0x200` and checks `chip8_state_checksum` equals a golden constant (computed from the 16-level spec). Implement from spec, not by hardcoding the constant.
+`tests/challenge/...` loads the existing canonical font table, then a 3-byte
+ROM `0x12 0x34 0x56` at `0x200` and checks `chip8_state_checksum` against a
+golden constant computed from the 12-entry serialization. Implement from the
+spec, not by hardcoding the constant.
 
 ## Boundaries
 

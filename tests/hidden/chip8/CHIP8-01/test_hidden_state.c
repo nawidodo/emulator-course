@@ -10,8 +10,8 @@
 #include "chip8/chip8.h"
 #include "test.h"
 
-// FNV-1a of the canonical power-on state (stack depth 16, per Austin Morlan, with fonts).
-#define EXPECT_INITIAL 0xA87B82ADu
+// FNV-1a of the canonical power-on state (stack depth 12, with fonts).
+#define EXPECT_INITIAL 0x3DF9EE0Du
 
 // FNV-1a of a hidden state (with fonts):
 //   memory[4095] = 0xFF
@@ -19,7 +19,7 @@
 //   PC = 0x0200, I = 0, SP = 0, stack = 0
 //   delay_timer = 0, sound_timer = 0x3C
 //   keys released, framebuffer black
-#define EXPECT_HIDDEN_STATE 0x098E13CDu
+#define EXPECT_HIDDEN_STATE 0x7461E26Du
 
 static void make_hidden_state(chip8 *m) {
     chip8_init(m);

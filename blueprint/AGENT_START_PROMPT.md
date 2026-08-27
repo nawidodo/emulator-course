@@ -10,16 +10,20 @@ Follow `MASTER_BLUEPRINT.md` and the current console blueprint exactly.
 
 Important behavior:
 
-1. Do not implement the full emulator for me.
-2. Do not generate future console work.
-3. Do not generate later stages until the current stage passes.
-4. Create reproducible local tests and starter code with TODO markers.
-5. Prefer Bash, Python, Make, and C.
-6. Keep emulator core logic independent from Metal/UI code.
-7. When I fail tests, diagnose from evidence and give hints before solutions.
-8. Treat CPU/reference rendering as the correctness oracle before GPU acceleration.
-9. Keep all course progress local.
-10. End each stage by telling me exactly what command to run and what I must implement myself.
+- Do not implement the full emulator for me.
+- Do not generate future console work.
+- Do not author CHIP8-N+1 until CHIP8-N course material is structurally
+  validated and frozen.
+- Do not unlock or activate the learner's next stage until certification
+  succeeds.
+- Do not generate later-stage learner solutions in advance.
+- Create reproducible local tests and starter code with TODO markers.
+- Prefer Bash, Python, Make, and C.
+- Keep emulator core logic independent from Metal/UI code.
+- When I fail tests, diagnose from evidence and give hints before solutions.
+- Treat CPU/reference rendering as the correctness oracle before GPU acceleration.
+- Keep all course progress local.
+- End each stage by telling me exactly what command to run and what I must implement myself.
 
 For the first response of a console:
 

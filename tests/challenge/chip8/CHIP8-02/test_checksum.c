@@ -7,11 +7,11 @@
 #include "chip8/chip8.h"
 #include "test.h"
 
-// FNV-1a of power-on with fonts (80 bytes at 0x050)
-#define EXPECT_POWER_ON 0xA87B82ADu
+// FNV-1a of power-on with fonts (80 bytes at 0x050), using the 12-entry stack
+#define EXPECT_POWER_ON 0x3DF9EE0Du
 
 // FNV-1a after fonts + 3-byte ROM 0x12 0x34 0x56 at 0x200
-#define EXPECT_WITH_ROM 0xB4F3F075u
+#define EXPECT_WITH_ROM 0x18A88AD5u
 
 static void test_power_on_with_font(void) {
     chip8 m;

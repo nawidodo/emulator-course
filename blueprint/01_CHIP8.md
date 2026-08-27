@@ -11,19 +11,23 @@
 
 This document is the authoritative curriculum blueprint for the CHIP-8 portion of the emulator course.
 
-When generating stages from this blueprint:
+When authoring stages from this blueprint:
 
-- generate **one stage at a time**
+- author only one new stage at a time
+- do not author CHIP8-N+1 until CHIP8-N course material is structurally
+  validated and frozen
 - do not implement future stages early
 - do not solve learner-owned TODOs
 - preserve the repository ownership rules
 - preserve fail-closed certification
 - keep emulator correctness separate from host presentation
 - do not claim the main CHIP-8 implementation is COSMAC VIP cycle-accurate
-- do not couple the CHIP-8 core to Metal, Cocoa, CoreAudio, AudioToolbox, or wall-clock APIs
+- do not couple the CHIP-8 core to Metal, Cocoa, CoreAudio, AudioToolbox, or
+  wall-clock APIs
 - use deterministic tests rather than real sleeps
 - keep timer, scheduler, audio-gate, renderer, and host-audio concerns separate
-- only unlock the next stage after the current stage is objectively certified
+- only unlock or activate the next stage after the current stage is objectively
+  certified
 
 The AI tutor is an instructor and reviewer.
 

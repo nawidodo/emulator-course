@@ -61,7 +61,7 @@ static void test_load_rom_bounds(void) {
     // zero size
     CHECK_EQ(chip8_load_rom(&m, rom, 0), 0);
     // exact fit: 3584 bytes at 0x200 -> 0xFFF inclusive
-    uint8_t big[3584];
+    uint8_t big[3585];
     memset(big, 0xAB, sizeof(big));
     chip8_init(&m);
     CHECK_EQ(chip8_load_rom(&m, big, 3584), 1);

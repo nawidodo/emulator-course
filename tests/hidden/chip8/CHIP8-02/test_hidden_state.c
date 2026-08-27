@@ -7,8 +7,8 @@
 #include "chip8/chip8.h"
 #include "test.h"
 
-#define EXPECT_POWER_ON 0xA87B82ADu
-#define EXPECT_HIDDEN 0x16472FBAu
+#define EXPECT_POWER_ON 0x3DF9EE0Du
+#define EXPECT_HIDDEN 0x78D750BAu
 
 static void make_hidden(chip8 *m) {
     chip8_init(m);

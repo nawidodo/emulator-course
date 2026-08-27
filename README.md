@@ -144,19 +144,40 @@ pseudocode → small fragment → full function` (last resort).
 
 ## Adding a future stage (for course authors)
 
+Authoring rule:
+
+```text
+Do not author CHIP8-N+1 until CHIP8-N course material is validated and frozen.
+```
+
+The repository may contain future blueprints, metadata, or authored stage files
+for validation. Those files do not unlock or expose a learner stage.
+
 1. Add the stage id/title in order to `config/consoles/chip8.json`; mark it
    `implemented: true` only when all required material below exists.
 2. Create `course/chip8/<STAGE>/STAGE.md` and `manifest.json`.
 3. Add the manifest-named visible, challenge, and certification test suites.
-4. Run `make verify-course` and `make doctor` — both must pass.
+4. Run `make verify-course` and `make doctor` - both must pass.
 5. Run negative tests: temporarily remove each required asset and confirm
-   `COURSE INFRASTRUCTURE ERROR → FAIL`.
-6. Do not generate future stages until the current one is certified.
+   `COURSE INFRASTRUCTURE ERROR -> FAIL`.
+6. Freeze the stage material before authoring the next stage.
+
+Learner rule:
+
+```text
+CHIP8-N certification
+        |
+unlock CHIP8-N+1
+```
+
+Only certification changes learner progression; the presence of future files
+does not activate or grant access to the next stage.
 
 ## Rules
 
-- One stage at a time. Later stage material is generated only after the
-  current stage is certified.
+- Authoring: validate and freeze CHIP8-N before authoring CHIP8-N+1.
+- Learner progression: certification must succeed before CHIP8-N+1 unlocks.
+- Future files do not constitute learner access or certification.
 - The CPU/reference path is the correctness oracle. Metal is added only
   once reference output is known correct, and is compared against it.
 - Keep dependencies minimal: Bash, Make, Python stdlib, C11.

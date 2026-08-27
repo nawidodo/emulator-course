@@ -92,7 +92,7 @@ static void test_double_init_from_opposite_dirt_agrees_everywhere(void) {
     CHECK_EQ(ones.sound_timer, zeros.sound_timer);
     CHECK_EQ(ones.V[0], zeros.V[0]);
     CHECK_EQ(ones.V[15], zeros.V[15]);
-    CHECK_EQ(ones.stack[15], zeros.stack[15]);
+    CHECK_EQ(ones.stack[11], zeros.stack[11]); // last valid stack entry
     CHECK_EQ(ones.keypad[3], zeros.keypad[3]);
     CHECK_EQ(ones.framebuffer[31][63], zeros.framebuffer[31][63]);
     CHECK_EQ(ones.memory[0x000], zeros.memory[0x000]); // reserved zone zero

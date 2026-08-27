@@ -7,16 +7,19 @@ plus a deterministic `chip8_state_checksum`. After this stage you can explain
 every field of the machine: what it is, how big it is, and what it holds at
 power-on.
 
-## Where "cycle" and "sound" live in this course
+## Where instruction steps and sound live in this course
 
-This stage owns the **machine state that makes cycle behavior and sound
-behavior possible later**. It deliberately implements neither:
+This stage owns the machine state that makes instruction scheduling and sound
+behavior possible later. It deliberately implements neither:
 
 ```text
-Stage 01 (this)   delay_timer + sound_timer exist as 8-bit machine state;
+Stage 01          delay_timer and sound_timer exist as 8-bit machine state;
                   power-on values are deterministic; nothing ticks them yet.
-Stage 03          chip8_step() executes EXACTLY ONE instruction.
-                  One step = one guest instruction: our "cycle" unit.
+Stage 03          instruction execution is introduced.
+                  One chip8_step() executes one CHIP-8 instruction.
+                  The course calls this an instruction step, not a hardware cycle.
+                  Hardware/cycle timing is a separate concept covered by the
+                  optional COSMAC VIP timing track.
 Stage 08          chip8_tick_60hz() decrements BOTH timers once per virtual
                   tick, saturating at zero. Sound gate ON iff ST > 0.
 Stage 11          accumulator scheduler derives instruction steps, 60 Hz
@@ -27,7 +30,7 @@ Stage 11          accumulator scheduler derives instruction steps, 60 Hz
 Two rules from blueprint v1.2.0 start mattering right now:
 
 1. **Host time never enters the core.** No sleeps, no clock reads, ever.
-   Tests inject values or compare states — instant and repeatable.
+   Tests inject values or compare states - instant and repeatable.
 2. **The core is a bit box.** Keypad booleans in, logical framebuffer and a
    LOGICAL sound gate out. Speakers/windows/Metal come much later and live
    outside `src/chip8/`.
@@ -44,8 +47,8 @@ Treat this table as the spec. The code is filled in from it.
 | I | 16-bit address | 0x0000 |
 | delay_timer | 8-bit | 0x00 |
 | sound_timer | 8-bit | 0x00 |
-| stack | 16 x 16-bit return addresses | empty (zeroed) |
-| SP | 0..16 valid entries | 0 |
+| stack | 12 x 16-bit return addresses | empty (zeroed) |
+| SP | 0..12 valid entries | 0 |
 | keypad | 16 keys, 0x0-0xF | all released |
 | framebuffer | 64 x 32 pixels, 1 bit/pixel (logical) | all 0 (black) |
 
@@ -67,10 +70,9 @@ checksum covers them too.
 
 - 4 KiB of RAM was the entire address space of the original machine family;
   16-bit `PC` and `I` address it directly.
-- The call stack is **16 levels deep** here, matching Austin Morlan's widely
-  used reference. The blueprint text suggests 12 entries; this repository
-  overrides that deliberately (see `blueprint/LOCAL_DEVIATIONS.md`, D1), and
-  tests enforce 16.
+- The call stack is **12 levels deep**, matching the historical COSMAC VIP
+  baseline used by the blueprint. The default course profile uses
+  `CHIP8_STACK_DEPTH = 12`; tests and later stack stages must use this value.
 - The logical framebuffer is 64*32 = 2048 bits = 256 bytes — exactly 1/16 of
   RAM, never more than that share of it. The teaching representation
   `uint8_t framebuffer[32][64]` spends 2048 host bytes (one byte per pixel)
@@ -104,7 +106,7 @@ Byte order is exactly:
     3.  PC high byte, PC low byte
     4.  I high byte, I low byte
     5.  SP
-    6.  for i in 0..15: stack[i] high byte, stack[i] low byte
+    6.  for i in 0..11: stack[i] high byte, stack[i] low byte
     7.  delay_timer
     8.  sound_timer
     9.  keypad[0..15], each as 0x00 (released) or 0x01 (pressed)
@@ -129,8 +131,8 @@ the state model has no holes.
 
 ## Debugging hints
 
-- Sizes are bytes: `printf("%zu\n", sizeof(m.stack));` prints 32 for
-  16 entries x 2 bytes — the entry COUNT stays 16.
+- Sizes are bytes: `printf("%zu\n", sizeof(m.stack));` prints 24 for
+  12 entries x 2 bytes - the entry COUNT stays 12.
 - A failing CHECK prints expression/file/line/expected-vs-actual: map it back
   to a Hardware-facts row.
 - Checksum mismatch? Check field ORDER (bytes, not fields) and unsigned
