@@ -13,7 +13,7 @@ static void test_size(void) {
     CHECK_EQ(sizeof(m.memory), 4096);   // 4 KiB of RAM
     CHECK_EQ(sizeof(m.V), 16);          // V0..VF
     CHECK_EQ(sizeof(m.framebuffer), 64 * 32); // teaching rep: one byte per pixel (2048); logical is 256 bytes
-    CHECK_EQ(sizeof(m.stack), 12 * 2);  // 12 return addresses, 16-bit each
+    CHECK_EQ(sizeof(m.stack), 16 * 2);  // 16 return addresses, 16-bit each (Austin Morlan: 16-level)
 }
 
 static void test_power_on_state(void) {

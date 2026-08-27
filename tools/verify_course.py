@@ -418,13 +418,14 @@ def validate_chip8_01_facts(catalog, reporter):
     stage_doc = repo_path("course/chip8/CHIP8-01/STAGE.md")
     if header.is_file():
         text = header.read_text(encoding="utf-8")
-        for expected, label in (("V0..VF", "V0..VF"), ("stack[12]", "12-entry stack"), ("memory[4096]", "4096-byte memory")):
+        for expected, label in (("V0..VF", "V0..VF"), ("stack[16]", "16-entry stack"), ("memory[4096]", "4096-byte memory")):
             if expected not in text:
                 reporter.error(header.relative_to(ROOT), "content", label, "missing")
     if stage_doc.is_file():
         text = stage_doc.read_text(encoding="utf-8")
         for forbidden, label in (
             ("V0..VE", "obsolete V0..VE wording"),
+            ("12 x 16-bit", "obsolete 12-entry stack wording"),
             ("13 x 16-bit", "obsolete 13-entry stack wording"),
             ("quarter of the RAM", "incorrect framebuffer arithmetic"),
         ):

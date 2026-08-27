@@ -18,8 +18,8 @@ Treat this table as the spec. The code is filled in from it.
 | I | 16-bit address | 0x0000 |
 | delay_timer | 8-bit | 0x00 |
 | sound_timer | 8-bit | 0x00 |
-| stack | 12 x 16-bit return addresses | empty |
-| SP | 0..12 | 0 |
+| stack | 16 x 16-bit return addresses | empty |
+| SP | 0..16 | 0 |
 | keypad | 16 keys, 0x0-0xF | all released |
 | framebuffer | 64 x 32 pixels, 1 bit per pixel (logical) | all 0 (black) |
 
@@ -37,10 +37,12 @@ there.
 
 - 4 KiB of RAM was the entire address space of the original machine (the
   Cosmac VIP / Elf family). The 16-bit `PC` and `I` address it directly.
-- The call stack is 12 levels deep for this course (original CHIP-8
-  interpreters varied between 12 and 16; we fix 12 so every implementation
-  is comparable and tests are deterministic). CHIP-8 programs are small and
-  rarely nest deep.
+- The call stack is 16 levels deep, following Austin Morlan's CHIP-8
+  reference (austinmorlan.com/posts/chip8_emulator) and the COSMAC VIP
+  heritage. That interpreter reserves a 16-entry array `stack[16]` with an
+  8-bit `SP` as an index into the array (`0..16`). Earlier course material
+  fixed 12 for determinism; we align to 16 so every implementation matches
+  the widely-used tutorial and can nest CALL/RET up to the classic limit.
 - The logical framebuffer is 64*32 = 2048 bits = 256 bytes. That is
   256 / 4096 = 6.25% (1/16) of RAM, not a quarter — one bit per pixel,
   black and white. The starter code in `src/chip8/chip8.h` uses a
@@ -69,8 +71,8 @@ there.
 
 ## Debugging hints
 
-- Sizes are in bytes: `printf("%zu\n", sizeof(m.stack));` — 12 entries of
-  2 bytes each is 24, not 12.
+- Sizes are in bytes: `printf("%zu\n", sizeof(m.stack));` — 16 entries of
+  2 bytes each is 32, not 16.
 - A test failure prints the failing expression, file, line, and
   expected-vs-actual values: map it back to a row of the hardware facts
   table.
@@ -97,7 +99,7 @@ The byte order is exactly:
     3.  PC high byte, PC low byte
     4.  I high byte, I low byte
     5.  SP
-    6.  for i in 0..11: stack[i] high byte, stack[i] low byte
+    6.  for i in 0..15: stack[i] high byte, stack[i] low byte
     7.  delay_timer
     8.  sound_timer
     9.  keypad[0..15], each as 0x00 (released) or 0x01 (pressed)

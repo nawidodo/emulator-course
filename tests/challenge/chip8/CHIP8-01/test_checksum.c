@@ -11,10 +11,10 @@
 #include "chip8/chip8.h"
 #include "test.h"
 
-// FNV-1a of the canonical power-on state (stack depth 12):
+// FNV-1a of the canonical power-on state (stack depth 16, per Austin Morlan):
 // memory zeroed, V = 0, PC = 0x0200, I = 0, SP = 0, stack = 0,
 // timers = 0, keys released, framebuffer black.
-#define EXPECT_POWER_ON 0xF1DD2EFDu
+#define EXPECT_POWER_ON 0xF8CFF19Du
 
 // FNV-1a of a modified state:
 //   memory[0x200] = 0x12
@@ -25,7 +25,7 @@
 //   delay_timer = 0x7F, sound_timer = 0
 //   keys released
 //   framebuffer: pixel (10, 5) set, everything else 0
-#define EXPECT_MODIFIED 0x5158F323u
+#define EXPECT_MODIFIED 0x2B55A983u
 
 static void make_modified(chip8 *m) {
     chip8_init(m);

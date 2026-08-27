@@ -4,9 +4,9 @@
 // The CHIP-8 is a small virtual machine that originally ran on the
 // Cosmac VIP microcomputer. Its entire state is small: 4 KiB of RAM,
 // sixteen 8-bit general-purpose registers V0..VF, a program counter, an
-// index register, a 12-deep call stack, two 8-bit timers, a 16-key keypad,
-// and a 64x32 one-bit logical framebuffer (stored as one byte per pixel
-// in the teaching struct).
+// index register, a 16-deep call stack (per Austin Morlan's CHIP-8
+// reference), two 8-bit timers, a 16-key keypad, and a 64x32 one-bit
+// logical framebuffer (stored as one byte per pixel in the teaching struct).
 
 #ifndef CHIP8_H
 #define CHIP8_H
@@ -32,8 +32,8 @@ typedef struct {
     uint8_t sound_timer;
 
     // Call stack: one 16-bit return address per nested call.
-    // Depth 12 for this course (see STAGE.md). SP is 0..12.
-    uint16_t stack[12];
+    // Depth 16 per Austin Morlan (16 levels, SP as index 0..16). See STAGE.md.
+    uint16_t stack[16];
 
     // Stack pointer: number of valid entries currently on the stack.
     uint8_t SP;
