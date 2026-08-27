@@ -277,6 +277,7 @@ A completed required CHIP-8 course produces a functional emulator with:
 - reference renderer
 - Metal renderer
 - deterministic scheduler
+- deterministic RNG state and documented seed
 - compatibility profiles / documented quirks
 - trace/debug mode
 - save/load state
@@ -301,6 +302,7 @@ stack
 SP
 delay timer
 sound timer
+rng state
 memory
 keypad state
 framebuffer
@@ -354,6 +356,7 @@ Model the VM before executing instructions.
 - `SP`
 - delay timer
 - sound timer
+- RNG state
 - memory
 - keypad
 - framebuffer
@@ -363,6 +366,7 @@ Model the VM before executing instructions.
 
 - 16 registers: `V0..VF`
 - stack depth: `12`
+- RNG policy: `CHIP8_RNG_SEED = 0xC0FFEE01`, xorshift32 for future `CXNN`
 - program-entry convention: `PC = 0x200`
 - `0x000–0x1FF`: reserved/interpreter/font area in the course model
 - `0x200+`: program area
@@ -387,7 +391,24 @@ documentation must explicitly state that it consumes 2048 host bytes even though
 - exact framebuffer dimensions
 - initial timer values
 - initial keypad state
+- deterministic RNG reset to the documented seed
 - deterministic state fingerprint/challenge where already defined
+
+### RNG Foundation Policy
+
+`rng_state` is explicit VM state, not a host service. `chip8_init` resets it
+to the nonzero `CHIP8_RNG_SEED = 0xC0FFEE01`. Future `CXNN` execution advances
+the state with xorshift32:
+
+```text
+x ^= x << 13
+x ^= x >> 17
+x ^= x << 5
+```
+
+All arithmetic wraps at 32 bits. The core must not use `rand`, `random`,
+`arc4random`, host entropy, or wall-clock data. Tests and replays provide or
+assert known RNG state so random execution remains reproducible.
 
 ### Timing
 
@@ -429,6 +450,45 @@ Learn memory ownership, bounds, fonts, and safe external input.
 Do not introduce opcode execution yet.
 
 ---
+
+## CHIP-8 Opcode Coverage Matrix
+
+This is the canonical ownership map for the standard CHIP-8 instruction set.
+Every opcode family has one first implementation stage. Compatibility or
+historical behavior is deferred to the listed profile stage where applicable.
+
+| Opcode | Meaning | First implementation stage | Quirk/profile stage |
+|---|---|---|---|
+| 00E0 | clear display | CHIP8-04 | - |
+| 00EE | return | CHIP8-07 | - |
+| 0NNN | SYS / unsupported default | CHIP8-03 | CHIP8-ADV-01 |
+| 1NNN | jump | CHIP8-04 | - |
+| 2NNN | call | CHIP8-07 | - |
+| 3XNN | skip if Vx equals NN | CHIP8-06 | - |
+| 4XNN | skip if Vx differs from NN | CHIP8-06 | - |
+| 5XY0 | skip if Vx equals Vy | CHIP8-06 | - |
+| 6XNN | load immediate | CHIP8-04 | - |
+| 7XNN | add immediate | CHIP8-04 | - |
+| 8XY0..E | arithmetic and bitwise ALU | CHIP8-05 | CHIP8-12 shifts |
+| 9XY0 | skip if Vx differs from Vy | CHIP8-06 | - |
+| ANNN | load I | CHIP8-04 | - |
+| BNNN | indexed jump | CHIP8-06 | CHIP8-12 |
+| CXNN | random byte AND NN | CHIP8-05 | deterministic RNG policy |
+| DXYN | draw sprite | CHIP8-10 | CHIP8-12 |
+| EX9E | skip if key Vx pressed | CHIP8-09 | - |
+| EXA1 | skip if key Vx released | CHIP8-09 | - |
+| FX07 | read delay timer | CHIP8-08 | - |
+| FX0A | wait for key | CHIP8-09 | profile if needed |
+| FX15 | set delay timer | CHIP8-08 | - |
+| FX18 | set sound timer | CHIP8-08 | sound policy |
+| FX1E | add Vx to I | CHIP8-06 | overflow/profile if modeled |
+| FX29 | font character address | CHIP8-10 | - |
+| FX33 | binary-coded decimal store | CHIP8-10 | - |
+| FX55 | store registers | CHIP8-10 | CHIP8-12 |
+| FX65 | load registers | CHIP8-10 | CHIP8-12 |
+
+`2NNN` belongs exclusively to CHIP8-07, where bounded stack behavior and
+subroutine nesting are taught. It is not part of CHIP8-04.
 
 ## CHIP8-03 — Fetch / Decode / Execute Skeleton
 
@@ -479,7 +539,6 @@ Implement first real instruction families.
 
 - `00E0`
 - `1NNN`
-- `2NNN`
 - `6XNN`
 - `7XNN`
 - `ANNN`
@@ -507,7 +566,8 @@ Learn arithmetic, bitwise logic, flags, and compatibility-sensitive behavior.
 
 ### Learner Implements
 
-Relevant `8XY*` operations.
+Relevant `8XY*` operations plus `CXNN` using the frozen deterministic RNG
+state policy.
 
 ### Required Tests
 
@@ -536,6 +596,11 @@ Do not silently bake undocumented variant assumptions into tests.
 
 Implement skips and remaining basic flow behavior.
 
+### Learner Implements
+
+- `BNNN`
+- `FX1E`
+
 ### Required Tests
 
 Include both taken and not-taken paths.
@@ -551,6 +616,11 @@ Compatibility-sensitive indexed-jump behavior should be documented and deferred/
 ### Goal
 
 Understand bounded guest stacks and nested control flow.
+
+### Learner Implements
+
+- `2NNN`
+- `00EE`
 
 ### Required Course Stack Depth
 
@@ -699,11 +769,9 @@ Implement deterministic keypad semantics.
 
 ### Learner Implements
 
-- key state
-- skip-if-key
-- skip-if-not-key
-- wait-for-key
-
+- `EX9E`
+- `EXA1`
+- `FX0A`
 ### Required Tests
 
 - press
@@ -732,10 +800,11 @@ Implement deterministic logical graphics before Metal.
 ### Learner Implements
 
 - `DXYN`
-- XOR sprite drawing
-- collision flag
-- edge behavior
-- display clear if not already completed
+- `FX29`
+- `FX33`
+- `FX55`
+- `FX65`
+- XOR sprite drawing, collision flag, edge behavior, and display clear
 
 ### Required Reference Path
 
@@ -1074,6 +1143,7 @@ save
 - framebuffer
 - keypad
 - timers
+- RNG state
 - stack
 - memory
 - compatibility-profile state if execution semantics depend on it

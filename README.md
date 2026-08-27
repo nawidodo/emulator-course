@@ -4,21 +4,23 @@ A Codecrafters-style course in building emulators from first principles:
 read the hardware spec, implement the machine, prove it with tests.
 The AI is the instructor and reviewer; you write the emulator.
 
-**Console 1: CHIP-8** — 14 core stages in C, then an 8-stage Metal track.
+**Console 1: CHIP-8** — CHIP8-01 is the only implemented learner stage. The
+remaining CHIP-8 stages and the 8-stage Metal track remain roadmap entries.
 
 ## Commands
 
-    make start          course status + command list
-    make stage          show the active stage brief (STAGE.md)
-    make test           visible tests cumulatively through the active stage
-    make challenge      challenge test for the active stage
-    make submit         preflight + visible + challenge + certification
-    make progress       per-stage progress
-    make next           advance to the next unlocked stage
-    make doctor         validate dev environment (cc, make, bash, python3)
-    make verify-course  validate course material integrity
-    make reset          safe progress reset (keeps src/)
-    make clean          remove build artifacts
+    make start             course status + command list
+    make stage             show the active stage brief (STAGE.md)
+    make test              visible tests cumulatively through the active stage
+    make challenge         challenge test for the active stage
+    make submit            preflight + visible + challenge + certification
+    make test-course-engine fail-closed course-engine regression suite
+    make progress          per-stage progress
+    make next              advance to the next unlocked stage
+    make doctor            validate dev environment (cc, make, bash, python3)
+    make verify-course     validate course material integrity
+    make reset             safe progress reset (keeps src/)
+    make clean             remove build artifacts
 
 ## What each command means
 
@@ -28,11 +30,11 @@ The AI is the instructor and reviewer; you write the emulator.
 - **`make challenge`** — runs the active-stage manifest's challenge suite.
   It is a less-guided, deterministic checksum / integration check.
 - **`make submit`** — first runs active-stage structural preflight, then
-  visible, challenge, and certification suites from the manifest. Only
-  `make submit` has **certification authority**: AI opinion (`"looks correct"`)
-  never certifies; only `grader success == certification`. On PASS the stage
-  is marked `certified` and the next stage is `unlocked`; run `make next` to
-  activate it.
+  visible and challenge suites, followed by all certification suites from
+  stages 01 through the active stage. Only `make submit` has **certification
+  authority**: AI opinion (`"looks correct"`) never certifies; only
+  `grader success == certification`. On PASS the stage is marked `certified`
+  and the next stage is `unlocked`; run `make next` to activate it.
 - **`make doctor`** — checks `cc`, `make`, `bash`, `python3` and a C11
   compile self-test. Extensible for future Metal (`xcrun`, `xcodebuild`).
 - **`make verify-course`** — answers *is this stage itself valid as course
@@ -40,6 +42,9 @@ The AI is the instructor and reviewer; you write the emulator.
   starter files, visible/challenge/certification suites, test compilation,
   prerequisites, and disjoint ownership partitions. Missing or invalid assets
   are **fail-closed**: `COURSE INFRASTRUCTURE ERROR → FAIL`, never `PASS`.
+- **`make test-course-engine`** — runs fail-closed regression tests against
+  isolated temporary repository copies, including malformed metadata, missing
+  assets, stage gaps, ownership overlap, host-time calls, and missing sources.
 - **`make reset`** — resets `.progress/state` and `build/` so you can replay
   the course. It **never** deletes `src/`, `course/`, or `tests/`.
 
@@ -91,6 +96,7 @@ directory, and ownership. `course.sh` contains no duplicate stage facts.
     tools/test.h             shared test framework (improved diagnostics)
     tools/verify_course.py   course-material validator
     tools/doctor.py          environment validator
+    tools/test_course_engine.py course-engine regression suite
     course/                  per-stage briefs + manifests — agent-owned
     config/course.json       authoritative console catalog + active console
     config/consoles/chip8.json  authoritative stage order, titles, implementation status
@@ -150,17 +156,19 @@ Authoring rule:
 Do not author CHIP8-N+1 until CHIP8-N course material is validated and frozen.
 ```
 
-The repository may contain future blueprints, metadata, or authored stage files
-for validation. Those files do not unlock or expose a learner stage.
+The repository may contain future blueprints and roadmap metadata with
+`implemented: false`. Authored learner-stage files are added only after the
+previous stage is validated and frozen; their presence never unlocks a learner.
 
-1. Add the stage id/title in order to `config/consoles/chip8.json`; mark it
+1. Confirm CHIP8-N is validated and frozen before authoring CHIP8-N+1.
+2. Add the stage id/title in order to `config/consoles/chip8.json`; mark it
    `implemented: true` only when all required material below exists.
-2. Create `course/chip8/<STAGE>/STAGE.md` and `manifest.json`.
-3. Add the manifest-named visible, challenge, and certification test suites.
-4. Run `make verify-course` and `make doctor` - both must pass.
-5. Run negative tests: temporarily remove each required asset and confirm
+3. Create `course/chip8/<STAGE>/STAGE.md` and `manifest.json`.
+4. Add the manifest-named visible, challenge, and certification test suites.
+5. Run `make verify-course`, `make doctor`, and `make test-course-engine`.
+6. Run negative tests: temporarily remove each required asset and confirm
    `COURSE INFRASTRUCTURE ERROR -> FAIL`.
-6. Freeze the stage material before authoring the next stage.
+7. Freeze the stage material before authoring the next stage.
 
 Learner rule:
 

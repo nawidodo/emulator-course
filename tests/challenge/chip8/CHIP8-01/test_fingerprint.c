@@ -22,6 +22,7 @@
 typedef void (*probe_fn)(chip8 *m);
 
 static void probe_index_register(chip8 *m)  { m->I = 0x05A3; }
+static void probe_rng_state(chip8 *m)      { m->rng_state ^= 0x01020304u; }
 static void probe_late_stack_entry(chip8 *m){ m->SP = 12; m->stack[11] = 0x02AA; }
 static void probe_last_register(chip8 *m)   { m->V[15] = 0xC7; } // VF flag reg
 static void probe_program_counter(chip8 *m) { m->PC = 0x02FA; }
@@ -39,6 +40,7 @@ static void probe_delay_timer(chip8 *m)     { m->delay_timer = 0x7D; }
 
 static const probe_fn PROBES[] = {
     probe_index_register,
+    probe_rng_state,
     probe_late_stack_entry,
     probe_last_register,
     probe_program_counter,

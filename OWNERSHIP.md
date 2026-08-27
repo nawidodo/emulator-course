@@ -38,6 +38,7 @@ tests/chip8/**
 tests/challenge/**
 tools/doctor.py
 tools/test.h
+tools/test_course_engine.py
 tools/verify_course.py
 ```
 

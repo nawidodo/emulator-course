@@ -11,10 +11,10 @@
 #include "chip8/chip8.h"
 #include "test.h"
 
-// FNV-1a of the canonical power-on state (stack depth 12, with fonts at 0x050):
+// FNV-1a of the canonical power-on state (stack depth 12, with fonts and RNG):
 // memory zeroed except font at 0x050, V = 0, PC = 0x0200, I = 0, SP = 0, stack = 0,
-// timers = 0, keys released, framebuffer black.
-#define EXPECT_POWER_ON 0x3DF9EE0Du
+// timers = 0, rng_state = CHIP8_RNG_SEED, keys released, framebuffer black.
+#define EXPECT_POWER_ON 0x2554F4B9u
 
 // FNV-1a of a modified state (with fonts):
 //   memory[0x200] = 0x12
@@ -25,7 +25,7 @@
 //   delay_timer = 0x7F, sound_timer = 0
 //   keys released
 //   framebuffer: pixel (10, 5) set, everything else 0
-#define EXPECT_MODIFIED 0x8F8AFB13u
+#define EXPECT_MODIFIED 0xB065C11Bu
 
 static void make_modified(chip8 *m) {
     chip8_init(m);

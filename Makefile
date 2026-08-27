@@ -1,6 +1,6 @@
 # Emulator course — thin dispatcher; stage logic lives in course.sh.
 
-.PHONY: start stage test challenge submit progress next clean doctor verify-course verify verify_course reset
+.PHONY: start stage test challenge submit progress next clean doctor verify-course test-course-engine verify verify_course reset
 
 start:
 	bash course.sh start
@@ -30,6 +30,10 @@ doctor:
 # Validate that course material itself is structurally valid
 verify-course:
 	bash course.sh verify-course
+
+# Regression-test fail-closed course-engine paths in isolated temp copies.
+test-course-engine:
+	python3 tools/test_course_engine.py
 
 verify: verify-course
 verify_course: verify-course

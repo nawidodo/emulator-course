@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 COURSE_CONFIG = Path("config/course.json")
 OWNERSHIP_CATEGORIES = ("student_owned", "agent_owned", "grader_owned")
 CHIP8_STACK_DEPTH = 12
+CHIP8_RNG_SEED = 0xC0FFEE01
 
 
 class Reporter:
@@ -130,6 +131,24 @@ def validate_repo_path(data, field, path, reporter):
     return value
 
 
+def validate_implemented_stage_integrity(console, reporter):
+    """Require implemented stages to form a contiguous prefix."""
+    errors_before = reporter.errors
+    saw_unimplemented = False
+    for index, stage in enumerate(console["stages"]):
+        if not stage["implemented"]:
+            saw_unimplemented = True
+            continue
+        if saw_unimplemented:
+            reporter.error(
+                console["path"],
+                f"stages[{index}].implemented",
+                "implemented stages form a contiguous prefix",
+                stage["id"],
+            )
+    if reporter.errors == errors_before:
+        reporter.ok(f"implemented-stage integrity ({console['path']})")
+
 def load_catalog(reporter):
     course = read_json(COURSE_CONFIG, reporter)
     if course is None:
@@ -193,6 +212,8 @@ def load_catalog(reporter):
             "stages": stages,
             "stage_index": {stage["id"]: i for i, stage in enumerate(stages)},
         }
+    for console in consoles.values():
+        validate_implemented_stage_integrity(console, reporter)
 
     if active_console is not None and active_console not in consoles:
         reporter.error(COURSE_CONFIG, "active_console", "id present in consoles", active_console)
@@ -264,6 +285,13 @@ def validate_manifest(catalog, console_id, stage_id, reporter, require_assets=Tr
                     manifest_path,
                     f"prerequisites[{index}]",
                     f"stage preceding {stage_id}",
+                    prerequisite,
+                )
+            elif not console["stages"][prerequisite_position]["implemented"]:
+                reporter.error(
+                    manifest_path,
+                    f"prerequisites[{index}]",
+                    "implemented prerequisite stage",
                     prerequisite,
                 )
 
@@ -417,12 +445,16 @@ def validate_chip8_01_facts(catalog, reporter):
     if console is None or "CHIP8-01" not in console["stage_index"]:
         return
     header = repo_path("src/chip8/chip8.h")
+    source = repo_path("src/chip8/chip8.c")
     stage_doc = repo_path("course/chip8/CHIP8-01/STAGE.md")
     if header.is_file():
         text = header.read_text(encoding="utf-8")
         expected_facts = (
             ("V0..VF", "V0..VF"),
-            (f"stack[{CHIP8_STACK_DEPTH}]", "12-entry stack"),
+            ("CHIP8_STACK_DEPTH", "stack-depth constant"),
+            ("rng_state", "deterministic RNG state"),
+            ("CHIP8_RNG_SEED", "deterministic RNG seed"),
+            (f"0x{CHIP8_RNG_SEED:08X}", "documented RNG seed value"),
             ("memory[4096]", "4096-byte memory"),
         )
         for expected, label in expected_facts:
@@ -437,10 +469,23 @@ def validate_chip8_01_facts(catalog, reporter):
         ):
             if forbidden in text:
                 reporter.error(header.relative_to(ROOT), "content", f"without {label}", forbidden)
+    if source.is_file():
+        text = source.read_text(encoding="utf-8")
+        for forbidden, label in (
+            ("chip8_load_font", "Stage02 font-loader API"),
+            ("chip8_load_rom", "Stage02 ROM-loader API"),
+            ("TODO(CHIP8-02)", "Stage02 learner TODO"),
+            ("Stage CHIP8-02", "Stage02 learner material"),
+        ):
+            if forbidden in text:
+                reporter.error(source.relative_to(ROOT), "content", f"without {label}", forbidden)
     if stage_doc.is_file():
         text = stage_doc.read_text(encoding="utf-8")
         expected_facts = (
             ("12 x 16-bit", "12-entry stack"),
+            ("rng_state", "deterministic RNG state"),
+            ("CHIP8_RNG_SEED", "deterministic RNG seed"),
+            ("xorshift32", "documented deterministic PRNG"),
         )
         for expected, label in expected_facts:
             if expected not in text:

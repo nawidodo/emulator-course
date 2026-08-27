@@ -10,8 +10,8 @@
 #include "chip8/chip8.h"
 #include "test.h"
 
-// FNV-1a of the canonical power-on state (stack depth 12, with fonts).
-#define EXPECT_INITIAL 0x3DF9EE0Du
+// FNV-1a of the canonical power-on state (stack depth 12, with fonts and RNG).
+#define EXPECT_INITIAL 0x2554F4B9u
 
 // FNV-1a of a hidden state (with fonts):
 //   memory[4095] = 0xFF
@@ -19,7 +19,7 @@
 //   PC = 0x0200, I = 0, SP = 0, stack = 0
 //   delay_timer = 0, sound_timer = 0x3C
 //   keys released, framebuffer black
-#define EXPECT_HIDDEN_STATE 0x7461E26Du
+#define EXPECT_HIDDEN_STATE 0x5FE32699u
 
 static void make_hidden_state(chip8 *m) {
     chip8_init(m);
@@ -50,6 +50,10 @@ static void test_checksum_sensitivity(void) {
     // and one bit of memory
     b = a;
     b.memory[0x100] = 0x80;
+    CHECK_NE(chip8_state_checksum(&a), chip8_state_checksum(&b));
+    // and one bit of deterministic RNG state
+    b = a;
+    b.rng_state ^= 0x00000001u;
     CHECK_NE(chip8_state_checksum(&a), chip8_state_checksum(&b));
     // and the high byte of a stack entry
     b = a;

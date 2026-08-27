@@ -287,6 +287,34 @@ run_visible() {
   return $rc
 }
 
+# Certification suite paths also come from every manifest through the active
+# stage. This preserves earlier hidden invariants as later stages are added.
+run_certification() {
+  local active active_index i stage rc=0 found=0
+  active=$(active_stage)
+  if ! active_index=$(stage_index "$active"); then
+    infrastructure_error "progress state references unknown active stage '$active'"
+    return 1
+  fi
+  for i in "${!STAGES[@]}"; do
+    if (( i > active_index )); then
+      continue
+    fi
+    stage="${STAGES[$i]}"
+    if ! preflight_stage "$stage"; then
+      return 1
+    fi
+    found=1
+    echo "== [certification] $stage"
+    run_dir "certification" "$CERTIFICATION_TESTS" || rc=1
+  done
+  if [[ $found -eq 0 ]]; then
+    infrastructure_error "no certification tests found up to $active"
+    return 1
+  fi
+  return $rc
+}
+
 # ------------------------------------------------------------- commands ---
 
 cmd_start() {
@@ -361,12 +389,8 @@ cmd_hidden() {
   state_init
   local active rc=0
   active=$(active_stage)
-  if ! preflight_stage "$active"; then
-    echo "CERTIFICATION TESTS: FAIL"
-    return 1
-  fi
-  echo "Running certification tests ($CONSOLE_TITLE $active)..."
-  run_dir "certification" "$CERTIFICATION_TESTS" || rc=1
+  echo "Running certification tests ($CONSOLE_TITLE through $active)..."
+  run_certification || rc=1
   echo ""
   if [[ $rc -eq 0 ]]; then
     echo "CERTIFICATION TESTS: PASS"

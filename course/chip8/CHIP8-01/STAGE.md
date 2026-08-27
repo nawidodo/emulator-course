@@ -2,10 +2,10 @@
 
 ## Objective
 
-Define the complete power-on state of the CHIP-8 and implement `chip8_init`
-plus a deterministic `chip8_state_checksum`. After this stage you can explain
-every field of the machine: what it is, how big it is, and what it holds at
-power-on.
+Define the complete deterministic power-on state of the CHIP-8 and implement
+`chip8_init` plus a deterministic `chip8_state_checksum`. This stage also
+freezes the VM-owned RNG state and reset seed that future `CXNN` execution will
+use.
 
 ## Where instruction steps and sound live in this course
 
@@ -47,6 +47,7 @@ Treat this table as the spec. The code is filled in from it.
 | I | 16-bit address | 0x0000 |
 | delay_timer | 8-bit | 0x00 |
 | sound_timer | 8-bit | 0x00 |
+| rng_state | 32-bit deterministic PRNG state | `CHIP8_RNG_SEED` |
 | stack | 12 x 16-bit return addresses | empty (zeroed) |
 | SP | 0..12 valid entries | 0 |
 | keypad | 16 keys, 0x0-0xF | all released |
@@ -66,6 +67,43 @@ Font bytes are provided in `src/chip8/chip8.c`; installing them during reset
 is your job. Fonts are part of the canonical power-on state, so the state
 checksum covers them too.
 
+
+## Foundation state boundary
+
+CHIP8-01 owns every deterministic field required by the current VM state:
+registers, PC, I, stack, SP, both timers, RNG state, RAM, keypad, and the
+logical framebuffer. Host windows, audio devices, clocks, and other
+presentation resources are not guest state.
+
+Wait-for-key state and compatibility-profile state are not required until a
+later stage introduces behavior that needs them. When added, they must become
+explicit VM state and follow the same reset, checksum, save-state, and replay
+rules.
+
+## RNG policy
+
+`rng_state` is explicit state inside the deterministic VM. `chip8_init` resets
+it to the nonzero seed `CHIP8_RNG_SEED`, defined as `0xC0FFEE01`.
+
+The future `CXNN` implementation advances this state with xorshift32:
+
+```text
+x ^= x << 13
+x ^= x >> 17
+x ^= x << 5
+```
+
+All operations wrap at 32 bits. The core must not call `rand`, `random`,
+`arc4random`, host entropy, or a wall clock. Tests and replays may set a known
+seed/state explicitly; a host frontend may choose a different explicit seed
+only through a future API.
+
+## Error philosophy
+
+Guest-invalid conditions must produce deterministic result or error behavior
+and must never cause host memory corruption. The exact opcode-step result API,
+fetch bounds, and unsupported-opcode PC policy belong to CHIP8-03.
+
 ## Why these sizes
 
 - 4 KiB of RAM was the entire address space of the original machine family;
@@ -79,6 +117,10 @@ checksum covers them too.
   so tests can index pixels directly; the logical truth is one bit per pixel.
 - Timers are 8-bit (0-255) and will tick at 60 Hz, so the longest
   delay/beep is about 4.25 seconds of game time.
+
+- `rng_state` is a 32-bit state word and must reset to `CHIP8_RNG_SEED`.
+- The seed is nonzero so the documented xorshift32 generator cannot enter its
+  absorbing all-zero state.
 
 ## Tasks
 
@@ -109,25 +151,30 @@ Byte order is exactly:
     6.  for i in 0..11: stack[i] high byte, stack[i] low byte
     7.  delay_timer
     8.  sound_timer
-    9.  keypad[0..15], each as 0x00 (released) or 0x01 (pressed)
-    10. framebuffer: rows y = 0..31, within each row x = 0..63, each pixel
+    9.  rng_state bytes 3, 2, 1, 0 (big-endian)
+    10. keypad[0..15], each as 0x00 (released) or 0x01 (pressed)
+    11. framebuffer: rows y = 0..31, within each row x = 0..63, each pixel
         as 0x00 (dark) or 0x01 (lit)
 
-Note steps 7-9: timers and keypad are part of the machine's identity. Save
-states, scheduler replays and sound-duration tests later rely on fingerprints
-being sensitive to exactly these fields.
+The `rng_state` word is serialized big-endian. The checksum therefore covers
+every deterministic guest-state field, including the future random stream.
+
+Note steps 7-10: timers, RNG state, and keypad are part of the machine's
+identity. Save states, scheduler replays, random-instruction tests and
+sound-duration tests later rely on fingerprints being sensitive to these
+fields.
 
 Implement from this spec — not by working backwards from test constants.
 
 ## Challenge B — mutation matrix
 
 `tests/challenge/chip8/CHIP8-01/test_fingerprint.c` mutates one field at a
-time (index register, late stack entry, VF flag register, PC, memory edges,
-first/last key, framebuffer corners, and yes — both timers), demands each
-mutation moves the fingerprint, then re-inits and demands an EXACT restore.
-Forgetting any field lets one probe slip past its restore check. Implement
-Challenge A completely and B passes for free — that is the point: B proves
-the state model has no holes.
+time (index register, late stack entry, RNG state, VF flag register, PC,
+memory edges, first/last key, framebuffer corners, and yes - both timers),
+demands each mutation moves the fingerprint, then re-inits and demands an
+EXACT restore. Forgetting any field lets one probe slip past its restore check.
+Implement Challenge A completely and B passes for free - that is the point: B
+proves the state model has no holes.
 
 ## Debugging hints
 
@@ -137,15 +184,16 @@ the state model has no holes.
   to a Hardware-facts row.
 - Checksum mismatch? Check field ORDER (bytes, not fields) and unsigned
   32-bit wraparound; never print the hash as signed while comparing.
-- The visible timer/sound suite needs ONLY chip8_init: it checks state
-  fields directly, never fingerprints. Fingerprints live in the challenges.
+- The visible timer/sound suite needs ONLY chip8_init: it checks state fields
+  directly, never fingerprints. Fingerprints live in the challenges.
+- If a checksum mismatch appears after changing state, verify the RNG bytes
+  are included after the timers and before the keypad bytes.
 
 ## Boundaries
 
-- Do not read `tests/hidden/`.
-- No `chip8_load_font`/`chip8_load_rom` work (stage CHIP8-02); no tick/step/
-  audio function (stages 03/08/11).
-- No wall-clock, sleep or random calls anywhere.
+- Do not implement ROM loading, opcode execution, timer ticks, scheduler,
+  audio, or graphics in this stage; later blueprint stages own those behaviors.
+- No host wall-clock, sleep, or nondeterministic random calls anywhere.
   `make verify-course` enforces the host-time portion of this boundary in
   core `.c`/`.h` files; it does not replace the learner's tests.
 

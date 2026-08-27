@@ -42,6 +42,7 @@ static const uint8_t font[80] = {
 //   I           0x0000
 //   delay_timer 0        (sound/delay are part of power-on state!)
 //   sound_timer 0
+//   rng_state   CHIP8_RNG_SEED
 //   stack       zeroed, SP = 0 (empty)
 //   keypad      every key released
 //   framebuffer every pixel dark
@@ -65,15 +66,3 @@ uint32_t chip8_state_checksum(const chip8 *m) {
 // ------------------------------------------------------------------
 // END STUDENT CODE (stage CHIP8-01)
 // ------------------------------------------------------------------
-
-// ---------------- Stage CHIP8-02 stubs (inert — do not touch yet) --------
-// These exist ONLY so the whole course toolchain keeps compiling/linking.
-// You will replace them in stage CHIP8-02; leave them alone for now.
-void chip8_load_font(chip8 *m) {
-    (void)m; // TODO(CHIP8-02): install font table at 0x050 (idempotently).
-}
-
-bool chip8_load_rom(chip8 *m, const uint8_t *data, size_t size) {
-    (void)m; (void)data; (void)size; // TODO(CHIP8-02): bounds-checked loader.
-    return false;
-}

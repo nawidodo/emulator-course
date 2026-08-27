@@ -90,6 +90,7 @@ static void test_double_init_from_opposite_dirt_agrees_everywhere(void) {
     CHECK_EQ(ones.SP, zeros.SP);
     CHECK_EQ(ones.delay_timer, zeros.delay_timer);
     CHECK_EQ(ones.sound_timer, zeros.sound_timer);
+    CHECK_EQ(ones.rng_state, zeros.rng_state);
     CHECK_EQ(ones.V[0], zeros.V[0]);
     CHECK_EQ(ones.V[15], zeros.V[15]);
     CHECK_EQ(ones.stack[11], zeros.stack[11]); // last valid stack entry
