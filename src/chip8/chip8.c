@@ -1,7 +1,15 @@
+// CHIP-8 machine core — Stage CHIP8-01 STARTER.
+//
+// Everything between BEGIN/END STUDENT markers is yours to implement.
+// Do NOT add includes beyond <string.h>; do not use globals; do not call
+// sleep/clock functions anywhere — the core is deterministic from explicit
+// inputs (blueprint v1.2.0 §4, §5).
+
 #include "chip8.h"
 #include <string.h>
 
-// Font sprites for hex 0-F, 5 bytes each, at 0x050 (see STAGE.md)
+// Canonical font sprites for hex 0-F, 5 bytes each (hardware fact — provided;
+// wiring them into the power-on state IS part of your task, see STAGE.md).
 static const uint8_t font[80] = {
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
@@ -21,80 +29,51 @@ static const uint8_t font[80] = {
     0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 };
 
+// ------------------------------------------------------------------
+// BEGIN STUDENT CODE (stage CHIP8-01)
+// ------------------------------------------------------------------
+
+// Reset the machine to its complete canonical power-on state.
+//
+// Required result (see STAGE.md "Hardware facts"):
+//   memory      zeroed EXCEPT the 80 font bytes copied to 0x050..0x09F
+//   V           all 16 registers zeroed
+//   PC          0x0200 (program-entry convention)
+//   I           0x0000
+//   delay_timer 0        (sound/delay are part of power-on state!)
+//   sound_timer 0
+//   stack       zeroed, SP = 0 (empty)
+//   keypad      every key released
+//   framebuffer every pixel dark
+//
+// It must recover this exact state even from arbitrarily dirty input.
+void chip8_init(chip8 *m) {
+    (void)m;    // silence unused-parameter while the body is yours to write
+    (void)font; // TODO(CHIP8-01): implement the full deterministic reset.
+}
+
+// Challenge: deterministic FNV-1a 32-bit checksum over the ENTIRE machine
+// state, in the exact byte order documented in STAGE.md. Every field must be
+// included — omitting even one register lets undetected bugs through.
+//
+// Return 0u until you implement it; tests then fail loudly instead of lying.
+uint32_t chip8_state_checksum(const chip8 *m) {
+    (void)m; // TODO(CHIP8-01 challenge): hash h = (h ^ b) * 16777619 ...
+    return 0u;
+}
+
+// ------------------------------------------------------------------
+// END STUDENT CODE (stage CHIP8-01)
+// ------------------------------------------------------------------
+
+// ---------------- Stage CHIP8-02 stubs (inert — do not touch yet) --------
+// These exist ONLY so the whole course toolchain keeps compiling/linking.
+// You will replace them in stage CHIP8-02; leave them alone for now.
 void chip8_load_font(chip8 *m) {
-    memcpy(&m->memory[0x050], font, sizeof(font));
+    (void)m; // TODO(CHIP8-02): install font table at 0x050 (idempotently).
 }
 
 bool chip8_load_rom(chip8 *m, const uint8_t *data, size_t size) {
-    if (data == NULL || size == 0) return false;
-    if (size > (0x1000 - 0x200)) return false; // would exceed 0xFFF
-    memcpy(&m->memory[0x200], data, size);
-    return true;
-}
-
-// Reset the machine to its power-on state (see STAGE.md hardware facts).
-// Power-on: memory and V0..VF zeroed, I=0, timers 0, stack empty (SP=0),
-// keys released, framebuffer cleared, PC=0x0200 (program-entry convention).
-// Fonts are loaded at 0x050 after clearing.
-void chip8_init(chip8 *m) {
-    memset(m->memory, 0, sizeof(m->memory));
-    memset(m->V, 0, sizeof(m->V));
-    m->PC = 0x0200;
-    m->I = 0;
-    m->delay_timer = 0;
-    m->sound_timer = 0;
-    memset(m->stack, 0, sizeof(m->stack));
-    m->SP = 0;
-    memset(m->keypad, 0, sizeof(m->keypad));
-    memset(m->framebuffer, 0, sizeof(m->framebuffer));
-    chip8_load_font(m);
-}
-
-static uint32_t fnv1a_update(uint32_t hash, const void *state, size_t size) {
-    uint32_t prime = 16777619;
-    uint32_t checksum = hash;
-    const uint8_t *data = (const uint8_t *)state;
-    for (size_t i = 0; i < size; i++) {
-        checksum ^= data[i];
-        checksum *= prime;
-    }
-    return checksum;
-}
-
-// TODO(CHIP8-01 challenge): compute the FNV-1a checksum of the full
-// machine state. The exact byte order is specified in STAGE.md.
-uint32_t chip8_state_checksum(const chip8 *m) {
-    uint32_t hash = 2166136261;
-
-    uint8_t pc_hi = (m->PC >> 8) & 0xFF;
-    uint8_t pc_lo = m->PC & 0xFF;
-    uint8_t i_hi = (m->I >> 8) & 0xFF;
-    uint8_t i_lo = m->I & 0xFF;
-
-    hash = fnv1a_update(hash, m->memory, sizeof(m->memory));
-    hash = fnv1a_update(hash, m->V, sizeof(m->V));
-    hash = fnv1a_update(hash, &pc_hi, 1);
-    hash = fnv1a_update(hash, &pc_lo, 1);
-    hash = fnv1a_update(hash, &i_hi, 1);
-    hash = fnv1a_update(hash, &i_lo, 1);
-    hash = fnv1a_update(hash, &m->SP, 1);
-    for (int idx = 0; idx < 16; idx++) {
-        uint8_t hi = (m->stack[idx] >> 8) & 0xFF;
-        uint8_t lo = m->stack[idx] & 0xFF;
-        hash = fnv1a_update(hash, &hi, 1);
-        hash = fnv1a_update(hash, &lo, 1);
-    }
-    hash = fnv1a_update(hash, &m->delay_timer, 1);
-    hash = fnv1a_update(hash, &m->sound_timer, 1);
-    for (int k = 0; k < 16; k++) {
-        uint8_t v = m->keypad[k] ? 1 : 0;
-        hash = fnv1a_update(hash, &v, 1);
-    }
-    for (int y = 0; y < 32; y++) {
-        for (int x = 0; x < 64; x++) {
-            uint8_t v = m->framebuffer[y][x] ? 1 : 0;
-            hash = fnv1a_update(hash, &v, 1);
-        }
-    }
-    return hash;
+    (void)m; (void)data; (void)size; // TODO(CHIP8-02): bounds-checked loader.
+    return false;
 }
