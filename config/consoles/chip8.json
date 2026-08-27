@@ -1,0 +1,19 @@
+{
+  "console": "chip8",
+  "title": "CHIP-8",
+  "stages": [
+    {
+      "id": "CHIP8-01",
+      "title": "Machine State",
+      "prerequisites": [],
+      "stage_dir": "course/chip8/CHIP8-01",
+      "required_files": [
+        "src/chip8/chip8.h",
+        "src/chip8/chip8.c"
+      ],
+      "visible_tests": "tests/chip8/CHIP8-01",
+      "challenge_tests": "tests/challenge/chip8/CHIP8-01",
+      "certification_tests": "tests/hidden/chip8/CHIP8-01"
+    }
+  ]
+}

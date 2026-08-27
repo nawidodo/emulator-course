@@ -1,0 +1,32 @@
+{
+  "stage": "CHIP8-01",
+  "console": "chip8",
+  "title": "Machine State",
+  "prerequisites": [],
+  "required_files": [
+    "src/chip8/chip8.h",
+    "src/chip8/chip8.c"
+  ],
+  "visible_tests": "tests/chip8/CHIP8-01",
+  "challenge_tests": "tests/challenge/chip8/CHIP8-01",
+  "certification_tests": "tests/hidden/chip8/CHIP8-01",
+  "stage_dir": "course/chip8/CHIP8-01",
+  "ownership": {
+    "student_owned": [
+      "src/**",
+      "platform/**",
+      "renderer/**"
+    ],
+    "agent_owned": [
+      "course/**",
+      "tests/chip8/**",
+      "tests/challenge/**",
+      "config/**",
+      "tools/verify_course.py",
+      "tools/doctor.py"
+    ],
+    "grader_owned": [
+      "tests/hidden/**"
+    ]
+  }
+}

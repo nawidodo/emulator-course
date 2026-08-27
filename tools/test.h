@@ -11,8 +11,8 @@
 //   }
 //
 // CHECK macros never abort: they print the failing expression, file, and
-// line, count the failure, and continue. A suite passes only if every
-// check passed.
+// line, plus expected-vs-actual values, count the failure, and continue.
+// A suite passes only if every check passed.
 
 #ifndef COURSE_TEST_H
 #define COURSE_TEST_H
@@ -38,21 +38,57 @@ static void check_begin(const char *name) {
             checks_failed++;                                              \
             printf("  FAIL [%s] %s:%d: %s\n", current_test, __FILE__,     \
                    __LINE__, #cond);                                      \
+            printf("         evaluated: %s is false\n", #cond);          \
         }                                                                 \
     } while (0)
 
 #define CHECK_TRUE(x) CHECK(x)
-#define CHECK_EQ(a, b) CHECK((a) == (b))
-#define CHECK_NE(a, b) CHECK((a) != (b))
+#define CHECK_EQ(a, b)                                                    \
+    do {                                                                  \
+        checks_run++;                                                     \
+        long long _a = (long long)(a);                                    \
+        long long _b = (long long)(b);                                    \
+        unsigned long long _ua = (unsigned long long)(a);                \
+        unsigned long long _ub = (unsigned long long)(b);                \
+        if (_a != _b) {                                                   \
+            checks_failed++;                                              \
+            printf("  FAIL [%s] %s:%d: %s == %s\n", current_test,         \
+                   __FILE__, __LINE__, #a, #b);                           \
+            printf("         expected %lld (0x%llx), got %lld (0x%llx)\n",\
+                   _b, _ub, _a, _ua);                                     \
+        }                                                                 \
+    } while (0)
+
+#define CHECK_NE(a, b)                                                    \
+    do {                                                                  \
+        checks_run++;                                                     \
+        long long _a = (long long)(a);                                    \
+        long long _b = (long long)(b);                                    \
+        unsigned long long _ua = (unsigned long long)(a);                \
+        unsigned long long _ub = (unsigned long long)(b);                \
+        if (_a == _b) {                                                   \
+            checks_failed++;                                              \
+            printf("  FAIL [%s] %s:%d: %s != %s (both %lld [0x%llx])\n",  \
+                   current_test, __FILE__, __LINE__, #a, #b, _a, _ua);    \
+        }                                                                 \
+        (void)_b; (void)_ub;                                              \
+    } while (0)
 
 #define CHECK_MEM_EQ(buf, expected, n)                                    \
     do {                                                                  \
         checks_run++;                                                     \
-        if (memcmp((buf), (expected), (n)) != 0) {                        \
+        const unsigned char *_b = (const unsigned char *)(buf);           \
+        const unsigned char *_e = (const unsigned char *)(expected);      \
+        size_t _n = (size_t)(n);                                          \
+        if (memcmp(_b, _e, _n) != 0) {                                    \
             checks_failed++;                                              \
+            size_t _off = 0;                                              \
+            while (_off < _n && _b[_off] == _e[_off]) _off++;             \
             printf("  FAIL [%s] %s:%d: memcmp(%s, %s, %zu) mismatch\n",   \
                    current_test, __FILE__, __LINE__, #buf, #expected,     \
-                   (size_t)(n));                                          \
+                   _n);                                                   \
+            printf("         first diff at offset %zu: got 0x%02x, expected 0x%02x\n", \
+                   _off, _b[_off], _e[_off]);                             \
         }                                                                 \
     } while (0)
 

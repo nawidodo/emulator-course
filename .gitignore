@@ -1,0 +1,23 @@
+# Build artifacts
+build/
+*.o
+*.a
+*.so
+*.dylib
+
+# Progress (local learner state; not versioned)
+.progress/state
+.progress/*.tmp
+
+# macOS / IDE
+.DS_Store
+*.dSYM/
+*.swp
+*~
+.idea/
+.vscode/
+
+# Tool caches
+__pycache__/
+*.pyc
+.pytest_cache/

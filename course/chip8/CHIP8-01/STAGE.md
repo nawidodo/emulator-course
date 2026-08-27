@@ -13,41 +13,49 @@ Treat this table as the spec. The code is filled in from it.
 | Field | Size | Power-on value |
 |---|---|---|
 | RAM | 4096 bytes, addresses 0x000-0xFFF | 0x00 everywhere |
-| V0..VE | 16 x 8-bit registers | 0x00 |
+| V0..VF | 16 x 8-bit registers | 0x00 |
 | PC | 16-bit address | 0x0200 |
 | I | 16-bit address | 0x0000 |
 | delay_timer | 8-bit | 0x00 |
 | sound_timer | 8-bit | 0x00 |
-| stack | 13 x 16-bit return addresses | empty |
-| SP | 0..13 | 0 |
+| stack | 12 x 16-bit return addresses | empty |
+| SP | 0..12 | 0 |
 | keypad | 16 keys, 0x0-0xF | all released |
-| framebuffer | 64 px wide x 32 px tall, 1 bit | all 0 (black) |
+| framebuffer | 64 x 32 pixels, 1 bit per pixel (logical) | all 0 (black) |
 
-Memory map (used from stage CHIP8-02 onward):
+Memory map (course VM convention; used from stage CHIP8-02 onward):
 
-    0x000-0x1FF   font sprites (loaded by the emulator; stage 2)
+    0x000-0x1FF   reserved — interpreter / font region (font sprites
+                  loaded by the emulator in stage 2; do not load programs here)
     0x200-0xFFF   program (ROM)
 
-That is why PC resets to 0x0200: a freshly loaded program always starts at
-the first byte of the program area.
+In this course `PC` resets to `0x200` by convention: it is the first
+address of the program area, so a freshly loaded program always starts
+there.
 
 ## Why these sizes
 
 - 4 KiB of RAM was the entire address space of the original machine (the
-  Cosmac ELF). The 16-bit PC and I address it directly.
-- The call stack is only 13 levels deep: CHIP-8 programs are small and
+  Cosmac VIP / Elf family). The 16-bit `PC` and `I` address it directly.
+- The call stack is 12 levels deep for this course (original CHIP-8
+  interpreters varied between 12 and 16; we fix 12 so every implementation
+  is comparable and tests are deterministic). CHIP-8 programs are small and
   rarely nest deep.
-- The framebuffer is 64*32 = 2048 bits = 256 bytes, a quarter of the RAM.
-  One bit per pixel: the display is black and white.
+- The logical framebuffer is 64*32 = 2048 bits = 256 bytes. That is
+  256 / 4096 = 6.25% (1/16) of RAM, not a quarter — one bit per pixel,
+  black and white. The starter code in `src/chip8/chip8.h` uses a
+  teaching representation `uint8_t framebuffer[32][64]` (one byte per pixel,
+  2048 bytes) so tests can address `framebuffer[y][x]` directly; do not
+  confuse the two — the logical size is 256 bytes.
 - The timers are 8-bit (0-255) and tick at 60 Hz, so the longest delay is
   about 4.2 seconds.
 
 ## Tasks
 
 1. `src/chip8/chip8.h`
-   The build currently fails at the `?` TODO markers. Fill in the three
-   sizes from the table above (stack depth, memory size, framebuffer
-   rows x columns).
+   Fill in the three sizes from the table above (stack depth, memory size,
+   framebuffer rows x columns). The starter header already compiles; your
+   job is to make the sizes match the spec so tests pass.
 
 2. `src/chip8/chip8.c`
    Implement `chip8_init`. The skeleton with the full reset list is there.
@@ -61,12 +69,11 @@ the first byte of the program area.
 
 ## Debugging hints
 
-- A build failure points at the exact TODO line: read the first error
-  message.
-- Sizes are in bytes: `printf("%zu\n", sizeof(m.stack));` — 13 entries of
-  2 bytes each is 26, not 13.
-- A test failure prints the failing expression and the test name: map it
-  back to a row of the hardware facts table.
+- Sizes are in bytes: `printf("%zu\n", sizeof(m.stack));` — 12 entries of
+  2 bytes each is 24, not 12.
+- A test failure prints the failing expression, file, line, and
+  expected-vs-actual values: map it back to a row of the hardware facts
+  table.
 - If the challenge checksum never matches, check two things: the field
   order (the spec lists bytes, not fields, in a specific sequence) and the
   32-bit wraparound (use unsigned 32-bit arithmetic; do not print as a
@@ -90,7 +97,7 @@ The byte order is exactly:
     3.  PC high byte, PC low byte
     4.  I high byte, I low byte
     5.  SP
-    6.  for i in 0..12: stack[i] high byte, stack[i] low byte
+    6.  for i in 0..11: stack[i] high byte, stack[i] low byte
     7.  delay_timer
     8.  sound_timer
     9.  keypad[0..15], each as 0x00 (released) or 0x01 (pressed)

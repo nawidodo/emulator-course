@@ -1,15 +1,13 @@
 #include "chip8.h"
+#include <string.h>
 
-// TODO(CHIP8-01): reset the machine to its power-on state:
-//   - all memory zeroed
-//   - V0..VE = 0, I = 0
-//   - delay_timer = 0, sound_timer = 0
-//   - stack empty: SP = 0
-//   - all keys released
-//   - framebuffer cleared
-//   - PC = the program load address (see STAGE.md, memory map)
+// Reset the machine to its power-on state (see STAGE.md hardware facts).
+// Power-on: memory and V0..VF zeroed, I=0, timers 0, stack empty (SP=0),
+// keys released, framebuffer cleared, PC=0x0200 (program-entry convention).
 void chip8_init(chip8 *m) {
-    (void)m; // TODO(CHIP8-01)
+    // TODO(CHIP8-01): implement. Must handle dirty state.
+    // Hint: memset for arrays, explicit assignment for scalars.
+    (void)m;
 }
 
 // TODO(CHIP8-01 challenge): compute the FNV-1a checksum of the full
