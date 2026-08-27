@@ -1,9 +1,41 @@
 #include "chip8.h"
 #include <string.h>
 
+// Font sprites for hex 0-F, 5 bytes each, at 0x050 (see STAGE.md)
+static const uint8_t font[80] = {
+    0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+    0x20, 0x60, 0x20, 0x20, 0x70, // 1
+    0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+    0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+    0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+    0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+    0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+    0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+    0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+    0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+    0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+    0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+    0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+    0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+    0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+    0xF0, 0x80, 0xF0, 0x80, 0x80  // F
+};
+
+void chip8_load_font(chip8 *m) {
+    memcpy(&m->memory[0x050], font, sizeof(font));
+}
+
+bool chip8_load_rom(chip8 *m, const uint8_t *data, size_t size) {
+    if (data == NULL || size == 0) return false;
+    if (size > (0x1000 - 0x200)) return false; // would exceed 0xFFF
+    memcpy(&m->memory[0x200], data, size);
+    return true;
+}
+
 // Reset the machine to its power-on state (see STAGE.md hardware facts).
 // Power-on: memory and V0..VF zeroed, I=0, timers 0, stack empty (SP=0),
 // keys released, framebuffer cleared, PC=0x0200 (program-entry convention).
+// Fonts are loaded at 0x050 after clearing.
 void chip8_init(chip8 *m) {
     memset(m->memory, 0, sizeof(m->memory));
     memset(m->V, 0, sizeof(m->V));
@@ -15,6 +47,7 @@ void chip8_init(chip8 *m) {
     m->SP = 0;
     memset(m->keypad, 0, sizeof(m->keypad));
     memset(m->framebuffer, 0, sizeof(m->framebuffer));
+    chip8_load_font(m);
 }
 
 static uint32_t fnv1a_update(uint32_t hash, const void *state, size_t size) {

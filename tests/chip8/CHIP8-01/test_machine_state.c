@@ -2,11 +2,30 @@
 //
 // These are the only tests you may read while working.
 
-#include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 
 #include "chip8/chip8.h"
 #include "test.h"
+
+static const uint8_t expected_font[80] = {
+    0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+    0x20, 0x60, 0x20, 0x20, 0x70, // 1
+    0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+    0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+    0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+    0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+    0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+    0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+    0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+    0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+    0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+    0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+    0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+    0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+    0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+    0xF0, 0x80, 0xF0, 0x80, 0x80  // F
+};
 
 static void test_size(void) {
     chip8 m;
@@ -20,8 +39,11 @@ static void test_power_on_state(void) {
     chip8 m;
     chip8_init(&m);
     unsigned i;
-    for (i = 0; i < sizeof(m.memory); i++)
-        CHECK_EQ(m.memory[i], 0);
+    for (i = 0; i < sizeof(m.memory); i++) {
+        uint8_t expected = 0;
+        if (i >= 0x050 && i < 0x0A0) expected = expected_font[i - 0x050];
+        CHECK_EQ(m.memory[i], expected);
+    }
     for (i = 0; i < 16; i++) {
         CHECK_EQ(m.V[i], 0);
         CHECK_EQ(m.keypad[i], 0);
@@ -61,8 +83,11 @@ static void test_reinit_clears_dirty_state(void) {
     CHECK_EQ(m.keypad[9], 0);
     CHECK_EQ(m.framebuffer[0][0], 0);
     unsigned i;
-    for (i = 0; i < sizeof(m.memory); i++)
-        CHECK_EQ(m.memory[i], 0);
+    for (i = 0; i < sizeof(m.memory); i++) {
+        uint8_t expected = 0;
+        if (i >= 0x050 && i < 0x0A0) expected = expected_font[i - 0x050];
+        CHECK_EQ(m.memory[i], expected);
+    }
 }
 
 int main(void) {

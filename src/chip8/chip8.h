@@ -1,5 +1,5 @@
 // CHIP-8 machine core — pure C. No I/O, no Metal, no globals.
-// Stage CHIP8-01: machine state.
+// Stage CHIP8-01: machine state; CHIP8-02: memory and ROM loading.
 //
 // The CHIP-8 is a small virtual machine that originally ran on the
 // Cosmac VIP microcomputer. Its entire state is small: 4 KiB of RAM,
@@ -12,6 +12,7 @@
 #define CHIP8_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 typedef struct {
@@ -61,5 +62,9 @@ void chip8_init(chip8 *m);
 // Stage CHIP8-01 challenge: deterministic 32-bit checksum of the full
 // machine state. The exact byte order is specified in STAGE.md.
 uint32_t chip8_state_checksum(const chip8 *m);
+
+// Stage CHIP8-02: font and ROM loading
+void chip8_load_font(chip8 *m);
+bool chip8_load_rom(chip8 *m, const uint8_t *data, size_t size);
 
 #endif // CHIP8_H

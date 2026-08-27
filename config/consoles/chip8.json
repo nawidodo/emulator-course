@@ -3,7 +3,7 @@
   "title": "CHIP-8",
   "stages": [
     { "id": "CHIP8-01", "title": "Machine State", "implemented": true },
-    { "id": "CHIP8-02", "title": "Memory and ROM Loading", "implemented": false },
+    { "id": "CHIP8-02", "title": "Memory and ROM Loading", "implemented": true },
     { "id": "CHIP8-03", "title": "Fetch / Decode / Execute Loop", "implemented": false },
     { "id": "CHIP8-04", "title": "Control and Immediate Instructions", "implemented": false },
     { "id": "CHIP8-05", "title": "ALU", "implemented": false },
