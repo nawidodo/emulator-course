@@ -1,0 +1,34 @@
+name: Course CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  course-engine:
+    name: Validate course engine
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Check runner syntax
+        run: bash -n course.sh
+
+      - name: Check Python syntax
+        run: python3 -m py_compile tools/doctor.py tools/verify_course.py
+
+      - name: Check development environment
+        run: make doctor
+
+      - name: Verify course material
+        run: make verify-course
+
+      # Learner tests intentionally fail until CHIP8-01 TODOs are complete.
+      # Certification belongs to the learner workflow, not infrastructure CI.
