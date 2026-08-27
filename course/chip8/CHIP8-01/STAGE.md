@@ -144,6 +144,8 @@ the state model has no holes.
 - No `chip8_load_font`/`chip8_load_rom` work (stage CHIP8-02); no tick/step/
   audio function (stages 03/08/11).
 - No wall-clock, sleep or random calls anywhere.
+  `make verify-course` enforces the host-time portion of this boundary in
+  core `.c`/`.h` files; it does not replace the learner's tests.
 
 ## Done when
 

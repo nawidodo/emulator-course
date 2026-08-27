@@ -14,11 +14,12 @@ modes so stdout remains parseable by the Bash runner.
 import argparse
 import glob
 import json
-from pathlib import Path, PurePosixPath
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
+from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parent.parent
 COURSE_CONFIG = Path("config/course.json")
@@ -434,6 +435,90 @@ def validate_chip8_01_facts(catalog, reporter):
     if not reporter.errors:
         reporter.ok("CHIP8-01 factual invariants")
 
+HOST_TIME_BANNED_CALLS = (
+    "sleep",
+    "usleep",
+    "nanosleep",
+    "Sleep",
+    "mach_absolute_time",
+    "mach_continuous_time",
+    "CFAbsoluteTimeGetCurrent",
+    "CFAbsoluteTimeGetGregorianDate",
+    "CFAbsoluteTimeGetCPUTime",
+    "clock_gettime",
+    "clock_get_time",
+    "clock",
+    "gettimeofday",
+    "time",
+)
+HOST_TIME_CALL_PATTERN = re.compile(
+    r"\b(?:" + "|".join(re.escape(name) for name in HOST_TIME_BANNED_CALLS) + r")\s*\("
+)
+
+
+def validate_core_host_time_ban(catalog, reporter):
+    """Blueprint v1.2.0 §4/§5: the deterministic core must never read host time.
+
+    Scans .c and .h files in every console core with implemented stages.
+    Comments and literals are removed before matching, preserving line
+    numbers. Any code-position hit rejects verification.
+    """
+    for console_id, console in catalog["consoles"].items():
+        if not any(stage["implemented"] for stage in console["stages"]):
+            continue
+        core_dir = repo_path(f"src/{console_id}")
+        core_sources = sorted(core_dir.glob("*.c")) + sorted(core_dir.glob("*.h"))
+        for source in core_sources:
+            try:
+                text = source.read_text(encoding="utf-8")
+            except OSError as exc:
+                reporter.error(source.relative_to(ROOT), None, "readable core source", str(exc))
+                continue
+            code_only = _strip_c_comments_and_strings(text)
+            for line_number, line in enumerate(code_only.splitlines(), start=1):
+                for match in HOST_TIME_CALL_PATTERN.finditer(line):
+                    call = match.group(0).split("(", 1)[0].strip()
+                    reporter.error(
+                        source.relative_to(ROOT),
+                        f"line {line_number}",
+                        "core source without host-time calls",
+                        f"{call} in: {line.strip()[:120]}",
+                    )
+    if not reporter.errors:
+        reporter.ok("core host-time ban (blueprint v1.2.0 §4/§5)")
+
+
+def _strip_c_comments_and_strings(text):
+    """Remove C comments and literal contents while preserving newlines."""
+    out = []
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        nxt = text[i + 1] if i + 1 < n else ""
+        if ch == "/" and nxt == "*":
+            end = text.find("*/", i + 2)
+            end = n if end == -1 else end + 2
+            out.append(re.sub(r"[^\n]", " ", text[i:end]))
+            i = end
+        elif ch == "/" and nxt == "/":
+            end = text.find("\n", i)
+            end = n if end == -1 else end
+            out.append(re.sub(r"[^\n]", " ", text[i:end]))
+            i = end
+        elif ch == '"' or ch == "'":
+            quote = ch
+            j = i + 1
+            while j < n and text[j] != quote:
+                j += 2 if text[j] == "\\" else 1
+            j = min(j + 1, n)
+            out.append(quote + re.sub(r"[^\n]", " ", text[i + 1:j - 1]) + quote)
+            i = j
+        else:
+            out.append(ch)
+            i += 1
+    return "".join(out)
+
 
 def emit_runtime_metadata(catalog):
     active = catalog["active_console"]
@@ -480,6 +565,7 @@ def verify_course():
         else:
             reporter.skip("test compilation (no valid implemented stage assets)")
         validate_chip8_01_facts(catalog, reporter)
+        validate_core_host_time_ban(catalog, reporter)
 
     validate_ownership_document(reporter)
     print("")

@@ -120,4 +120,10 @@ make doctor          # is the dev environment valid?
 ```
 
 Both must pass before stage content is considered publishable.
+
+`make verify-course` also rejects banned host-time API calls in the core
+sources for every implemented console (`src/<console>/*.c` and `.h`), enforcing
+the deterministic-core boundary from blueprint v1.2.0 §4/§5. Host elapsed-time
+ownership belongs outside the guest core.
+
 See `tools/verify_course.py` and `tools/doctor.py` for the checks.
