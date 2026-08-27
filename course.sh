@@ -9,59 +9,128 @@ cd "$SCRIPT_DIR"
 PROGRESS_DIR="$SCRIPT_DIR/.progress"
 STATE_FILE="$PROGRESS_DIR/state"
 BUILD_DIR="$SCRIPT_DIR/build"
-
-CONSOLE="chip8"
-CONSOLE_TITLE="CHIP-8"
+METADATA_TOOL="$SCRIPT_DIR/tools/verify_course.py"
 CFLAGS="-std=c11 -Wall -Wextra -Werror -O1 -g"
 
-# ---------------------------------------------------------------- config ---
-# Prefer data files in config/ when present, but keep hardcoded fallback
-# so the course remains runnable if config is missing (verified by
-# make verify-course).
-STAGES=(
-  CHIP8-01 CHIP8-02 CHIP8-03 CHIP8-04 CHIP8-05 CHIP8-06 CHIP8-07
-  CHIP8-08 CHIP8-09 CHIP8-10 CHIP8-11 CHIP8-12 CHIP8-13 CHIP8-14
-  MTL-00 MTL-01 MTL-02 MTL-03 MTL-04 MTL-05 MTL-06 MTL-07
-)
+CONSOLE=""
+CONSOLE_TITLE=""
+STAGES=()
+STAGE_NAMES=()
+STAGE_IMPLEMENTED=()
 
-STAGE_NAMES=(
-  "Machine State"
-  "Memory and ROM Loading"
-  "Fetch / Decode / Execute Loop"
-  "Control and Immediate Instructions"
-  "ALU"
-  "Conditional Flow"
-  "Stack and Subroutines"
-  "Timers"
-  "Input"
-  "Graphics"
-  "Scheduler"
-  "ROM Compatibility"
-  "Debugger"
-  "Save States"
-  "GPU Mental Model"
-  "Metal Setup"
-  "First Triangle"
-  "Buffers"
-  "Textures"
-  "CHIP-8 Framebuffer Upload"
-  "Pixel-Perfect Scaling"
-  "Frame Synchronization"
-)
+STAGE_DIR=""
+VISIBLE_TESTS=""
+CHALLENGE_TESTS=""
+CERTIFICATION_TESTS=""
+REQUIRED_FILES=()
 
-# If config/course.json exists, validate it matches hardcoded stages
-# (non-fatal; verify-course will report mismatch).
-if [[ -f "$SCRIPT_DIR/config/course.json" ]] && command -v python3 >/dev/null 2>&1; then
-  _cfg_stages=$(python3 -c "import json,sys;print(' '.join(json.load(open('config/course.json'))['stages']))" 2>/dev/null || true)
-  if [[ -n "$_cfg_stages" ]]; then
-    # Compare counts as sanity check; don't override hardcoded silently
-    _hardcoded_count=${#STAGES[@]}
-    _cfg_count=$(echo "$_cfg_stages" | wc -w | tr -d ' ')
-    if [[ "$_hardcoded_count" != "$_cfg_count" ]]; then
-      echo "warning: config/course.json stages count ($_cfg_count) differs from hardcoded ($_hardcoded_count)" >&2
-    fi
+infrastructure_error() {
+  echo "COURSE INFRASTRUCTURE ERROR: $*" >&2
+}
+
+require_python() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    infrastructure_error "required executable python3 not found"
+    return 1
   fi
-fi
+  if [[ ! -f "$METADATA_TOOL" ]]; then
+    infrastructure_error "missing metadata validator ($METADATA_TOOL)"
+    return 1
+  fi
+}
+
+# config/course.json is authoritative for the active console; the referenced
+# console config is authoritative for console title, stage order, and titles.
+load_runtime_metadata() {
+  require_python || return 1
+  local output kind first second third
+  if ! output=$(python3 "$METADATA_TOOL" --runtime-metadata); then
+    return 1
+  fi
+
+  CONSOLE=""
+  CONSOLE_TITLE=""
+  STAGES=()
+  STAGE_NAMES=()
+  STAGE_IMPLEMENTED=()
+  while IFS=$'\t' read -r kind first second third; do
+    case "$kind" in
+      CONSOLE)
+        CONSOLE="$first"
+        CONSOLE_TITLE="$second"
+        ;;
+      STAGE)
+        STAGES+=("$first")
+        STAGE_NAMES+=("$second")
+        STAGE_IMPLEMENTED+=("$third")
+        ;;
+      "") ;;
+      *)
+        infrastructure_error "unexpected metadata record '$kind'"
+        return 1
+        ;;
+    esac
+  done <<< "$output"
+
+  if [[ -z "$CONSOLE" || -z "$CONSOLE_TITLE" || ${#STAGES[@]} -eq 0 ]]; then
+    infrastructure_error "runtime metadata is incomplete"
+    return 1
+  fi
+}
+
+# The active-stage manifest is authoritative for required files and suite
+# paths. The Python helper performs structural and semantic preflight before
+# emitting values; stdout is parsed only after validation succeeds.
+load_stage_assets() { # $1 = stage id
+  local stage="$1" output kind value
+  require_python || return 1
+  if ! output=$(python3 "$METADATA_TOOL" --stage-assets "$CONSOLE" "$stage"); then
+    return 1
+  fi
+
+  STAGE_DIR=""
+  VISIBLE_TESTS=""
+  CHALLENGE_TESTS=""
+  CERTIFICATION_TESTS=""
+  REQUIRED_FILES=()
+  while IFS=$'\t' read -r kind value; do
+    case "$kind" in
+      TITLE) ;;
+      STAGE_DIR) STAGE_DIR="$SCRIPT_DIR/$value" ;;
+      REQUIRED_FILE) REQUIRED_FILES+=("$SCRIPT_DIR/$value") ;;
+      VISIBLE_TESTS) VISIBLE_TESTS="$SCRIPT_DIR/$value" ;;
+      CHALLENGE_TESTS) CHALLENGE_TESTS="$SCRIPT_DIR/$value" ;;
+      CERTIFICATION_TESTS) CERTIFICATION_TESTS="$SCRIPT_DIR/$value" ;;
+      "") ;;
+      *)
+        infrastructure_error "unexpected stage-asset record '$kind'"
+        return 1
+        ;;
+    esac
+  done <<< "$output"
+
+  if [[ -z "$STAGE_DIR" || -z "$VISIBLE_TESTS" || -z "$CHALLENGE_TESTS" || \
+        -z "$CERTIFICATION_TESTS" || ${#REQUIRED_FILES[@]} -eq 0 ]]; then
+    infrastructure_error "manifest assets for $stage are incomplete"
+    return 1
+  fi
+}
+
+# Consume manifest.required_files in the runner as a final race-safe check.
+require_starter_files() {
+  local file
+  for file in "${REQUIRED_FILES[@]}"; do
+    if [[ ! -f "$file" ]]; then
+      infrastructure_error "missing required starter file ($file)"
+      return 1
+    fi
+  done
+}
+
+preflight_stage() { # $1 = stage id
+  load_stage_assets "$1" || return 1
+  require_starter_files || return 1
+}
 
 # ---------------------------------------------------------------- state ---
 
@@ -74,6 +143,12 @@ stage_index() { # $1 = stage id -> prints index
     fi
   done
   return 1
+}
+
+stage_is_implemented() { # $1 = stage id
+  local i
+  i=$(stage_index "$1") || return 1
+  [[ "${STAGE_IMPLEMENTED[$i]}" == "1" ]]
 }
 
 next_stage_id() { # $1 = stage id -> prints next stage id or nothing
@@ -89,14 +164,14 @@ state_init() {
   if [[ -f "$STATE_FILE" ]]; then
     return 0
   fi
-  local s
+  local stage
   {
     echo "active=${STAGES[0]}"
-    for s in "${STAGES[@]}"; do
-      if [[ "$s" == "${STAGES[0]}" ]]; then
-        echo "$s=active"
+    for stage in "${STAGES[@]}"; do
+      if [[ "$stage" == "${STAGES[0]}" ]]; then
+        echo "$stage=active"
       else
-        echo "$s=pending"
+        echo "$stage=pending"
       fi
     done
   } > "$STATE_FILE"
@@ -137,19 +212,21 @@ set_active() { # $1 = stage id
 
 # ------------------------------------------------------------- building ---
 
-# Compile one test file against the core sources and run the binary.
-# Returns 0 on pass, 1 on build or test failure.
 build_one() { # $1 = test source path
   local src="$1"
   local out="$BUILD_DIR/$(basename "$src" .c).bin"
   local core=()
-  local f
+  local file
   mkdir -p "$BUILD_DIR"
-  for f in "$SCRIPT_DIR/src/$CONSOLE"/*.c; do
-    [[ -e "$f" ]] && core+=("$f")
+  if ! command -v cc >/dev/null 2>&1; then
+    infrastructure_error "required executable cc not found"
+    return 1
+  fi
+  for file in "$SCRIPT_DIR/src/$CONSOLE"/*.c; do
+    [[ -e "$file" ]] && core+=("$file")
   done
   if [[ ${#core[@]} -eq 0 ]]; then
-    echo "  BUILD FAIL: no core sources in src/$CONSOLE/"
+    infrastructure_error "no core sources in src/$CONSOLE/"
     return 1
   fi
   if ! cc $CFLAGS -I"$SCRIPT_DIR/src" -I"$SCRIPT_DIR/tools" \
@@ -160,115 +237,76 @@ build_one() { # $1 = test source path
     return 1
   fi
   rm -f "$out.err"
-  if ! "$out"; then
-    return 1
-  fi
-  return 0
+  "$out"
 }
 
-# Visible tests: every stage at or before the active stage.
-# Fail-closed: missing directory or empty test set is infrastructure error.
+run_dir() { # $1 = label, $2 = manifest-provided test directory
+  local label="$1" dir="$2" rc=0 test_source found=0
+  if [[ ! -d "$dir" ]]; then
+    infrastructure_error "missing $label tests directory ($dir)"
+    return 1
+  fi
+  for test_source in "$dir"/test_*.c; do
+    [[ -e "$test_source" ]] || continue
+    found=1
+    echo "== [$label] $(basename "$test_source")"
+    build_one "$test_source" || rc=1
+  done
+  if [[ $found -eq 0 ]]; then
+    infrastructure_error "no test_*.c in $dir"
+    return 1
+  fi
+  return $rc
+}
+
+# Visible suite paths come from each implemented stage's manifest. This keeps
+# cumulative testing without reconstructing paths in Bash.
 run_visible() {
-  local ACTIVE active_i i stage d t rc=0 found=0
-  ACTIVE=$(active_stage)
-  active_i=$(stage_index "$ACTIVE")
+  local active active_index i stage rc=0 found=0
+  active=$(active_stage)
+  if ! active_index=$(stage_index "$active"); then
+    infrastructure_error "progress state references unknown active stage '$active'"
+    return 1
+  fi
   for i in "${!STAGES[@]}"; do
-    if (( i > active_i )); then
+    if (( i > active_index )); then
       continue
     fi
     stage="${STAGES[$i]}"
-    d="$SCRIPT_DIR/tests/$CONSOLE/$stage"
-    if [[ ! -d "$d" ]]; then
-      echo "COURSE INFRASTRUCTURE ERROR: missing visible tests for $stage ($d)" >&2
+    if ! preflight_stage "$stage"; then
       return 1
     fi
-    local has_test=0
-    for t in "$d"/test_*.c; do
-      [[ -e "$t" ]] || continue
-      has_test=1
-      found=1
-      echo "== [visible] $stage $(basename "$t")"
-      build_one "$t" || rc=1
-    done
-    if [[ $has_test -eq 0 ]]; then
-      echo "COURSE INFRASTRUCTURE ERROR: no test_*.c in $d" >&2
-      return 1
-    fi
-  done
-  if [[ $found -eq 0 ]]; then
-    echo "COURSE INFRASTRUCTURE ERROR: no visible tests found up to $ACTIVE" >&2
-    return 1
-  fi
-  return $rc
-}
-
-run_dir() { # $1 = label, $2 = directory of test sources
-  local label="$1" dir="$2"
-  if [[ ! -d "$dir" ]]; then
-    echo "COURSE INFRASTRUCTURE ERROR: missing $label tests directory ($dir)" >&2
-    return 1
-  fi
-  local rc=0 t found=0
-  for t in "$dir"/test_*.c; do
-    [[ -e "$t" ]] || continue
     found=1
-    echo "== [$label] $(basename "$t")"
-    build_one "$t" || rc=1
+    echo "== [visible] $stage"
+    run_dir "visible" "$VISIBLE_TESTS" || rc=1
   done
   if [[ $found -eq 0 ]]; then
-    echo "COURSE INFRASTRUCTURE ERROR: no test_*.c in $dir" >&2
+    infrastructure_error "no visible tests found up to $active"
     return 1
   fi
   return $rc
-}
-
-# Helpers for fail-closed validation of stage assets
-require_stage_manifest() {
-  local ACTIVE="$1"
-  local mf="$SCRIPT_DIR/course/$CONSOLE/$ACTIVE/manifest.json"
-  if [[ ! -f "$mf" ]]; then
-    echo "COURSE INFRASTRUCTURE ERROR: missing stage manifest ($mf)" >&2
-    return 1
-  fi
-  if command -v python3 >/dev/null 2>&1; then
-    if ! python3 -c "import json,sys; json.load(open('$mf'))" 2>/dev/null; then
-      echo "COURSE INFRASTRUCTURE ERROR: invalid stage manifest JSON ($mf)" >&2
-      return 1
-    fi
-  fi
-  return 0
-}
-
-require_starter_files() {
-  local ACTIVE="$1"
-  # For CHIP8-01: src/chip8/chip8.h and .c must exist
-  local f
-  for f in "$SCRIPT_DIR/src/$CONSOLE/chip8.h" "$SCRIPT_DIR/src/$CONSOLE/chip8.c"; do
-    if [[ ! -f "$f" ]]; then
-      echo "COURSE INFRASTRUCTURE ERROR: missing required starter file ($f)" >&2
-      return 1
-    fi
-  done
-  return 0
 }
 
 # ------------------------------------------------------------- commands ---
 
 cmd_start() {
   state_init
-  local ACTIVE i
-  ACTIVE=$(active_stage)
-  i=$(stage_index "$ACTIVE")
+  local active i
+  active=$(active_stage)
+  if ! i=$(stage_index "$active"); then
+    infrastructure_error "progress state references unknown active stage '$active'"
+    return 1
+  fi
   echo "Zero to Expert — Emulator Course"
   echo "Console: $CONSOLE_TITLE"
-  echo "Active stage: $ACTIVE (${STAGE_NAMES[$i]})"
+  echo "Active stage: $active (${STAGE_NAMES[$i]})"
   echo ""
   echo "Commands:"
   echo "  make start          course status"
   echo "  make stage          active stage brief"
   echo "  make test           visible tests"
   echo "  make challenge      active stage challenge"
-  echo "  make submit         certify stage (visible + challenge + hidden)"
+  echo "  make submit         structural preflight + visible + challenge + certification"
   echo "  make progress       stage progress"
   echo "  make next           advance to next unlocked stage"
   echo "  make doctor         validate dev environment"
@@ -280,31 +318,16 @@ cmd_start() {
 
 cmd_stage() {
   state_init
-  local ACTIVE md
-  ACTIVE=$(active_stage)
-  md="$SCRIPT_DIR/course/$CONSOLE/$ACTIVE/STAGE.md"
-  if [[ ! -f "$md" ]]; then
-    echo "COURSE INFRASTRUCTURE ERROR: missing STAGE.md for $ACTIVE ($md)" >&2
-    return 1
-  fi
-  cat "$md"
+  local active
+  active=$(active_stage)
+  preflight_stage "$active" || return 1
+  cat "$STAGE_DIR/STAGE.md"
 }
 
 cmd_test() {
   state_init
-  local ACTIVE
-  ACTIVE=$(active_stage)
-  # fail-closed pre-checks
-  local rc=0
-  require_stage_manifest "$ACTIVE" || rc=1
-  require_starter_files "$ACTIVE" || rc=1
-  if [[ $rc -ne 0 ]]; then
-    echo "COURSE INFRASTRUCTURE ERROR: stage $ACTIVE is incomplete" >&2
-    echo "VISIBLE TESTS: FAIL"
-    return 1
-  fi
   echo "Running visible tests ($CONSOLE_TITLE)..."
-  rc=0
+  local rc=0
   run_visible || rc=1
   echo ""
   if [[ $rc -eq 0 ]]; then
@@ -317,25 +340,14 @@ cmd_test() {
 
 cmd_challenge() {
   state_init
-  local ACTIVE d rc
-  ACTIVE=$(active_stage)
-  require_stage_manifest "$ACTIVE" || { echo "CHALLENGE: FAIL"; return 1; }
-  d="$SCRIPT_DIR/tests/challenge/$CONSOLE/$ACTIVE"
-  if [[ ! -d "$d" ]]; then
-    echo "COURSE INFRASTRUCTURE ERROR: missing challenge tests for $ACTIVE ($d)" >&2
+  local active rc=0
+  active=$(active_stage)
+  if ! preflight_stage "$active"; then
     echo "CHALLENGE: FAIL"
     return 1
   fi
-  local has_test=0
-  for t in "$d"/test_*.c; do [[ -e "$t" ]] && has_test=1; done
-  if [[ $has_test -eq 0 ]]; then
-    echo "COURSE INFRASTRUCTURE ERROR: no test_*.c in $d" >&2
-    echo "CHALLENGE: FAIL"
-    return 1
-  fi
-  echo "Running challenge ($CONSOLE_TITLE $ACTIVE)..."
-  rc=0
-  run_dir "challenge" "$d" || rc=1
+  echo "Running challenge ($CONSOLE_TITLE $active)..."
+  run_dir "challenge" "$CHALLENGE_TESTS" || rc=1
   echo ""
   if [[ $rc -eq 0 ]]; then
     echo "CHALLENGE: PASS"
@@ -347,40 +359,38 @@ cmd_challenge() {
 
 cmd_hidden() {
   state_init
-  local ACTIVE d rc
-  ACTIVE=$(active_stage)
-  require_stage_manifest "$ACTIVE" || { echo "HIDDEN TESTS: FAIL"; return 1; }
-  d="$SCRIPT_DIR/tests/hidden/$CONSOLE/$ACTIVE"
-  if [[ ! -d "$d" ]]; then
-    echo "COURSE INFRASTRUCTURE ERROR: missing certification tests for $ACTIVE ($d)" >&2
-    echo "HIDDEN TESTS: FAIL"
+  local active rc=0
+  active=$(active_stage)
+  if ! preflight_stage "$active"; then
+    echo "CERTIFICATION TESTS: FAIL"
     return 1
   fi
-  local has_test=0
-  for t in "$d"/test_*.c; do [[ -e "$t" ]] && has_test=1; done
-  if [[ $has_test -eq 0 ]]; then
-    echo "COURSE INFRASTRUCTURE ERROR: no test_*.c in $d" >&2
-    echo "HIDDEN TESTS: FAIL"
-    return 1
-  fi
-  echo "Running hidden certification tests ($CONSOLE_TITLE $ACTIVE)..."
-  rc=0
-  run_dir "hidden" "$d" || rc=1
+  echo "Running certification tests ($CONSOLE_TITLE $active)..."
+  run_dir "certification" "$CERTIFICATION_TESTS" || rc=1
   echo ""
   if [[ $rc -eq 0 ]]; then
-    echo "HIDDEN TESTS: PASS"
+    echo "CERTIFICATION TESTS: PASS"
   else
-    echo "HIDDEN TESTS: FAIL (see above)"
+    echo "CERTIFICATION TESTS: FAIL (see above)"
   fi
   return $rc
 }
 
 cmd_submit() {
   state_init
-  local ACTIVE next rc=0
-  ACTIVE=$(active_stage)
-  echo "SUBMIT: $CONSOLE_TITLE $ACTIVE"
+  local active next rc=0
+  active=$(active_stage)
+  echo "SUBMIT: $CONSOLE_TITLE $active"
   echo ""
+  echo "Running structural preflight..."
+  if ! preflight_stage "$active"; then
+    echo "STRUCTURAL PREFLIGHT: FAIL"
+    echo "NOT CERTIFIED: course infrastructure is incomplete or invalid"
+    return 1
+  fi
+  echo "STRUCTURAL PREFLIGHT: PASS"
+  echo ""
+
   cmd_test || rc=1
   echo ""
   cmd_challenge || rc=1
@@ -388,12 +398,12 @@ cmd_submit() {
   cmd_hidden || rc=1
   echo ""
   if [[ $rc -eq 0 ]]; then
-    set_stage_status "$ACTIVE" "certified"
-    next=$(next_stage_id "$ACTIVE")
+    set_stage_status "$active" "certified"
+    next=$(next_stage_id "$active")
     if [[ -n "$next" ]]; then
       set_stage_status "$next" "unlocked"
     fi
-    echo "CERTIFIED: $ACTIVE"
+    echo "CERTIFIED: $active"
     if [[ -n "$next" ]]; then
       echo "Unlocked: $next"
       echo "Run: make next"
@@ -408,41 +418,41 @@ cmd_submit() {
 
 cmd_progress() {
   state_init
-  local ACTIVE i stage st marker
-  ACTIVE=$(active_stage)
+  local active i stage status marker
+  active=$(active_stage)
   echo "$CONSOLE_TITLE — progress"
   echo ""
   for i in "${!STAGES[@]}"; do
     stage="${STAGES[$i]}"
-    st=$(stage_status "$stage")
+    status=$(stage_status "$stage")
     marker=" "
-    if [[ "$stage" == "$ACTIVE" ]]; then
+    if [[ "$stage" == "$active" ]]; then
       marker="*"
     fi
-    printf "  %s %s  %-30s %s\n" "$marker" "$stage" "${STAGE_NAMES[$i]}" "$st"
+    printf "  %s %s  %-30s %s\n" "$marker" "$stage" "${STAGE_NAMES[$i]}" "$status"
   done
 }
 
 cmd_next() {
   state_init
-  local ACTIVE next st md
-  ACTIVE=$(active_stage)
-  next=$(next_stage_id "$ACTIVE")
+  local active next status
+  active=$(active_stage)
+  next=$(next_stage_id "$active")
   if [[ -z "$next" ]]; then
     echo "No more stages."
     return 0
   fi
-  st=$(stage_status "$next")
-  if [[ "$st" != "unlocked" && "$st" != "active" ]]; then
-    echo "$next is locked. Certify $ACTIVE first: make submit"
+  status=$(stage_status "$next")
+  if [[ "$status" != "unlocked" && "$status" != "active" ]]; then
+    echo "$next is locked. Certify $active first: make submit"
     return 1
   fi
-  md="$SCRIPT_DIR/course/$CONSOLE/$next/STAGE.md"
-  if [[ ! -f "$md" ]]; then
+  if ! stage_is_implemented "$next"; then
     echo "$next is unlocked, but its materials are not generated yet."
-    echo "Ask the agent: create stage $next for $CONSOLE_TITLE."
+    echo "Ask the agent to create $next for $CONSOLE_TITLE as a separate task."
     return 1
   fi
+  preflight_stage "$next" || return 1
   set_active "$next"
   set_stage_status "$next" "active"
   echo "Active stage: $next"
@@ -450,31 +460,18 @@ cmd_next() {
 }
 
 cmd_doctor() {
-  if [[ -f "$SCRIPT_DIR/tools/doctor.py" ]]; then
-    python3 "$SCRIPT_DIR/tools/doctor.py"
-    return $?
+  local doctor="$SCRIPT_DIR/tools/doctor.py"
+  require_python || return 1
+  if [[ ! -f "$doctor" ]]; then
+    infrastructure_error "missing doctor utility ($doctor)"
+    return 1
   fi
-  # Fallback inline checks
-  local ok=0
-  echo "doctor: checking required tools (fallback)"
-  for t in cc make bash python3; do
-    if command -v "$t" >/dev/null 2>&1; then
-      echo "  ok: $t ($("$t" --version 2>&1 | head -n1))"
-    else
-      echo "  missing: $t" >&2
-      ok=1
-    fi
-  done
-  return $ok
+  python3 "$doctor"
 }
 
 cmd_verify_course() {
-  if [[ -f "$SCRIPT_DIR/tools/verify_course.py" ]]; then
-    python3 "$SCRIPT_DIR/tools/verify_course.py"
-    return $?
-  fi
-  echo "COURSE INFRASTRUCTURE ERROR: missing tools/verify_course.py" >&2
-  return 1
+  require_python || return 1
+  python3 "$METADATA_TOOL"
 }
 
 cmd_reset() {
@@ -483,7 +480,6 @@ cmd_reset() {
     echo "  removing $STATE_FILE"
     rm -f "$STATE_FILE"
   fi
-  # Remove build artifacts, keep source
   if [[ -d "$BUILD_DIR" ]]; then
     echo "  removing $BUILD_DIR/"
     rm -rf "$BUILD_DIR"
@@ -492,6 +488,8 @@ cmd_reset() {
   echo "Progress reset. Active stage: $(active_stage)"
   echo "Student source in src/ was not touched."
 }
+
+load_runtime_metadata || exit 1
 
 case "${1:-start}" in
   start)          cmd_start ;;

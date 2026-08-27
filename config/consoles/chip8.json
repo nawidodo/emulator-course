@@ -2,18 +2,27 @@
   "console": "chip8",
   "title": "CHIP-8",
   "stages": [
-    {
-      "id": "CHIP8-01",
-      "title": "Machine State",
-      "prerequisites": [],
-      "stage_dir": "course/chip8/CHIP8-01",
-      "required_files": [
-        "src/chip8/chip8.h",
-        "src/chip8/chip8.c"
-      ],
-      "visible_tests": "tests/chip8/CHIP8-01",
-      "challenge_tests": "tests/challenge/chip8/CHIP8-01",
-      "certification_tests": "tests/hidden/chip8/CHIP8-01"
-    }
+    { "id": "CHIP8-01", "title": "Machine State", "implemented": true },
+    { "id": "CHIP8-02", "title": "Memory and ROM Loading", "implemented": false },
+    { "id": "CHIP8-03", "title": "Fetch / Decode / Execute Loop", "implemented": false },
+    { "id": "CHIP8-04", "title": "Control and Immediate Instructions", "implemented": false },
+    { "id": "CHIP8-05", "title": "ALU", "implemented": false },
+    { "id": "CHIP8-06", "title": "Conditional Flow", "implemented": false },
+    { "id": "CHIP8-07", "title": "Stack and Subroutines", "implemented": false },
+    { "id": "CHIP8-08", "title": "Timers", "implemented": false },
+    { "id": "CHIP8-09", "title": "Input", "implemented": false },
+    { "id": "CHIP8-10", "title": "Graphics", "implemented": false },
+    { "id": "CHIP8-11", "title": "Scheduler", "implemented": false },
+    { "id": "CHIP8-12", "title": "ROM Compatibility", "implemented": false },
+    { "id": "CHIP8-13", "title": "Debugger", "implemented": false },
+    { "id": "CHIP8-14", "title": "Save States", "implemented": false },
+    { "id": "MTL-00", "title": "GPU Mental Model", "implemented": false },
+    { "id": "MTL-01", "title": "Metal Setup", "implemented": false },
+    { "id": "MTL-02", "title": "First Triangle", "implemented": false },
+    { "id": "MTL-03", "title": "Buffers", "implemented": false },
+    { "id": "MTL-04", "title": "Textures", "implemented": false },
+    { "id": "MTL-05", "title": "CHIP-8 Framebuffer Upload", "implemented": false },
+    { "id": "MTL-06", "title": "Pixel-Perfect Scaling", "implemented": false },
+    { "id": "MTL-07", "title": "Frame Synchronization", "implemented": false }
   ]
 }

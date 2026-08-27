@@ -6,6 +6,7 @@ and AI assistance cannot silently certify or complete student work.
 Keywords checked by `make verify-course`: `student-owned`, `agent-owned`, `grader-owned`.
 
 ## Student-Owned (learner's implementation)
+```
 src/**
 platform/**
 renderer/**
@@ -92,11 +93,15 @@ requests:
 RESCUE MODE
 ```
 
-## Manifests
+## Metadata Authority
 
-Every generated stage has `course/<console>/<stage>/manifest.json` describing
-stage ID, console, prerequisites, required tests, required files, and the
-ownership partitions above.
+`config/course.json` is authoritative for the console catalog and active
+console. Its referenced console config is authoritative for console title,
+stage order, stage titles, and which stages have generated material. Every
+implemented stage has `course/<console>/<stage>/manifest.json`; that manifest
+is authoritative for prerequisites, required files, test-suite paths, stage
+directory, and ownership partitions. `course.sh` only orchestrates values
+loaded through `tools/verify_course.py`.
 
 ## Verification
 

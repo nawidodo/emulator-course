@@ -48,8 +48,8 @@ static void check_begin(const char *name) {
         checks_run++;                                                     \
         long long _a = (long long)(a);                                    \
         long long _b = (long long)(b);                                    \
-        unsigned long long _ua = (unsigned long long)(a);                \
-        unsigned long long _ub = (unsigned long long)(b);                \
+        unsigned long long _ua = (unsigned long long)_a;                 \
+        unsigned long long _ub = (unsigned long long)_b;                 \
         if (_a != _b) {                                                   \
             checks_failed++;                                              \
             printf("  FAIL [%s] %s:%d: %s == %s\n", current_test,         \
@@ -64,8 +64,8 @@ static void check_begin(const char *name) {
         checks_run++;                                                     \
         long long _a = (long long)(a);                                    \
         long long _b = (long long)(b);                                    \
-        unsigned long long _ua = (unsigned long long)(a);                \
-        unsigned long long _ub = (unsigned long long)(b);                \
+        unsigned long long _ua = (unsigned long long)_a;                 \
+        unsigned long long _ub = (unsigned long long)_b;                 \
         if (_a == _b) {                                                   \
             checks_failed++;                                              \
             printf("  FAIL [%s] %s:%d: %s != %s (both %lld [0x%llx])\n",  \

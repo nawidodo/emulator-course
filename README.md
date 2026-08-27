@@ -4,7 +4,7 @@ A Codecrafters-style course in building emulators from first principles:
 read the hardware spec, implement the machine, prove it with tests.
 The AI is the instructor and reviewer; you write the emulator.
 
-**Console 1: CHIP-8** — 14 core stages in C, then a 7-stage Metal track.
+**Console 1: CHIP-8** — 14 core stages in C, then an 8-stage Metal track.
 
 ## Commands
 
@@ -22,24 +22,24 @@ The AI is the instructor and reviewer; you write the emulator.
 
 ## What each command means
 
-- **`make test`** — runs `tests/chip8/<stage>/test_*.c` for every stage at or
-  before the active one. These are the *visible* tests you may read while
-  working.
-- **`make challenge`** — runs `tests/challenge/<stage>/test_*.c` for the
-  active stage. Less-guided, deterministic checksum / integration check.
-- **`make submit`** — runs visible + challenge + `tests/hidden/<stage>/`
-  certification tests. Only `make submit` has **certification authority**:
-  AI opinion (`"looks correct"`) never certifies; only `grader success ==
-  certification`. On PASS the stage is marked `certified` and the next stage
-  is `unlocked`; run `make next` to activate it.
+- **`make test`** — runs the visible suite named by each implemented stage's
+  manifest, cumulatively through the active stage. These are the *visible*
+  tests you may read while working.
+- **`make challenge`** — runs the active-stage manifest's challenge suite.
+  It is a less-guided, deterministic checksum / integration check.
+- **`make submit`** — first runs active-stage structural preflight, then
+  visible, challenge, and certification suites from the manifest. Only
+  `make submit` has **certification authority**: AI opinion (`"looks correct"`)
+  never certifies; only `grader success == certification`. On PASS the stage
+  is marked `certified` and the next stage is `unlocked`; run `make next` to
+  activate it.
 - **`make doctor`** — checks `cc`, `make`, `bash`, `python3` and a C11
   compile self-test. Extensible for future Metal (`xcrun`, `xcodebuild`).
 - **`make verify-course`** — answers *is this stage itself valid as course
-  material?* Checks: `STAGE.md` exists, `manifest.json` exists and parses,
-  visible/challenge/certification suites exist, starter files exist, tests
-  compile, ownership partitions are consistent, config data matches.
-  Missing assets are **fail-closed**: `COURSE INFRASTRUCTURE ERROR → FAIL`,
-  never `PASS`.
+  material?* It validates config and manifest semantics, `STAGE.md`, required
+  starter files, visible/challenge/certification suites, test compilation,
+  prerequisites, and disjoint ownership partitions. Missing or invalid assets
+  are **fail-closed**: `COURSE INFRASTRUCTURE ERROR → FAIL`, never `PASS`.
 - **`make reset`** — resets `.progress/state` and `build/` so you can replay
   the course. It **never** deletes `src/`, `course/`, or `tests/`.
 
@@ -76,9 +76,11 @@ Every generated stage has `course/<console>/<stage>/manifest.json`:
 }
 ```
 
-`config/course.json` and `config/consoles/chip8.json` hold the canonical
-console/stage catalog. `course.sh` prefers those files when present and
-`make verify-course` checks they stay consistent with the hardcoded fallback.
+Metadata authority is a strict chain: `config/course.json` selects the active
+console and its config; `config/consoles/chip8.json` defines console title,
+stage order, stage titles, and implementation status; each implemented stage's
+`manifest.json` defines prerequisites, required files, suite paths, stage
+directory, and ownership. `course.sh` contains no duplicate stage facts.
 
 ## Layout
 
@@ -90,8 +92,8 @@ console/stage catalog. `course.sh` prefers those files when present and
     tools/verify_course.py   course-material validator
     tools/doctor.py          environment validator
     course/                  per-stage briefs + manifests — agent-owned
-    config/course.json       canonical stage list
-    config/consoles/chip8.json  per-console stage metadata
+    config/course.json       authoritative console catalog + active console
+    config/consoles/chip8.json  authoritative stage order, titles, implementation status
     OWNERSHIP.md             ownership & trust-boundary contract
     .progress/state          local course state (git-ignored)
     build/                   compiled test binaries (git-ignored)
@@ -141,10 +143,10 @@ pseudocode → small fragment → full function` (last resort).
 
 ## Adding a future stage (for course authors)
 
-1. Add the stage id and title to `config/course.json` and
-   `config/consoles/chip8.json`.
+1. Add the stage id/title in order to `config/consoles/chip8.json`; mark it
+   `implemented: true` only when all required material below exists.
 2. Create `course/chip8/<STAGE>/STAGE.md` and `manifest.json`.
-3. Add `tests/chip8/<STAGE>/test_*.c`, `tests/challenge/...`, `tests/hidden/...`.
+3. Add the manifest-named visible, challenge, and certification test suites.
 4. Run `make verify-course` and `make doctor` — both must pass.
 5. Run negative tests: temporarily remove each required asset and confirm
    `COURSE INFRASTRUCTURE ERROR → FAIL`.

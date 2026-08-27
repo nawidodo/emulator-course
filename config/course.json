@@ -1,34 +1,9 @@
 {
-  "consoles": ["chip8"],
-  "stages": [
-    "CHIP8-01", "CHIP8-02", "CHIP8-03", "CHIP8-04", "CHIP8-05", "CHIP8-06",
-    "CHIP8-07", "CHIP8-08", "CHIP8-09", "CHIP8-10", "CHIP8-11", "CHIP8-12",
-    "CHIP8-13", "CHIP8-14", "MTL-00", "MTL-01", "MTL-02", "MTL-03",
-    "MTL-04", "MTL-05", "MTL-06", "MTL-07"
-  ],
-  "stage_names": [
-    "Machine State",
-    "Memory and ROM Loading",
-    "Fetch / Decode / Execute Loop",
-    "Control and Immediate Instructions",
-    "ALU",
-    "Conditional Flow",
-    "Stack and Subroutines",
-    "Timers",
-    "Input",
-    "Graphics",
-    "Scheduler",
-    "ROM Compatibility",
-    "Debugger",
-    "Save States",
-    "GPU Mental Model",
-    "Metal Setup",
-    "First Triangle",
-    "Buffers",
-    "Textures",
-    "CHIP-8 Framebuffer Upload",
-    "Pixel-Perfect Scaling",
-    "Frame Synchronization"
-  ],
-  "active_console": "chip8"
+  "active_console": "chip8",
+  "consoles": [
+    {
+      "id": "chip8",
+      "config": "config/consoles/chip8.json"
+    }
+  ]
 }

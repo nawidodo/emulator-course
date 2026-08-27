@@ -1,98 +1,160 @@
 #!/usr/bin/env python3
-"""
-doctor.py — validate the local dev environment for the CHIP-8 course.
+"""Validate required local tools and the C11 compiler path."""
 
-Checks (current CHIP-8 portion):
-  cc, make, bash, python3
-Extensible for future Metal: checks xcrun, metal, xcodebuild optionally
-when MTL tracks are present.
-
-Exit 0 if all required tools present, 1 otherwise.
-"""
+import json
+from pathlib import Path
 import shutil
 import subprocess
 import sys
-import os
+import tempfile
 
-REQUIRED = [
-    ("cc", ["cc", "--version"]),
-    ("make", ["make", "--version"]),
-    ("bash", ["bash", "--version"]),
-    ("python3", ["python3", "--version"]),
-]
+ROOT = Path(__file__).resolve().parent.parent
+REQUIRED = (
+    ("cc", ("--version",)),
+    ("make", ("--version",)),
+    ("bash", ("--version",)),
+    ("python3", ("--version",)),
+)
+OPTIONAL_METAL = (
+    ("xcrun", ("--version",)),
+    ("xcodebuild", ("-version",)),
+)
 
-OPTIONAL_METAL = [
-    ("xcrun", ["xcrun", "--version"]),
-    ("xcodebuild", ["xcodebuild", "-version"]),
-]
 
-def check(cmd, args):
-    path = shutil.which(cmd)
-    if not path:
-        print(f"  missing: {cmd}", file=sys.stderr)
-        return False
+def first_line(text):
+    lines = text.strip().splitlines()
+    return lines[0] if lines else "version unavailable"
+
+
+def check_tool(name, arguments, required=True):
+    path = shutil.which(name)
+    label = "FAIL" if required else "SKIP"
+    stream = sys.stderr if required else sys.stdout
+    if path is None:
+        print(f"  [{label}] {name} not found", file=stream)
+        return None
     try:
-        out = subprocess.run(args, capture_output=True, text=True, timeout=5)
-        ver = (out.stdout or out.stderr).strip().splitlines()[0] if (out.stdout or out.stderr) else path
-        print(f"  ok: {cmd} ({ver}) [{path}]")
-        return True
-    except Exception as e:
-        print(f"  ok: {cmd} [{path}] (version check failed: {e})")
-        return True
+        result = subprocess.run(
+            [path, *arguments],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except FileNotFoundError:
+        print(f"  [{label}] {name} disappeared before execution", file=stream)
+        return None
+    except subprocess.TimeoutExpired:
+        print(f"  [{label}] {name} version check timed out", file=stream)
+        return None
+    except OSError as exc:
+        print(f"  [{label}] could not execute {name}: {exc}", file=stream)
+        return None
+    if result.returncode != 0:
+        detail = first_line(result.stderr or result.stdout)
+        print(
+            f"  [{label}] {name} version check exited {result.returncode}: {detail}",
+            file=stream,
+        )
+        return None
+    print(f"  [OK] {name}: {first_line(result.stdout or result.stderr)} [{path}]")
+    return path
+
+
+def metal_is_required():
+    config = ROOT / "config/consoles/chip8.json"
+    try:
+        data = json.loads(config.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError):
+        return False
+    stages = data.get("stages")
+    if not isinstance(stages, list):
+        return False
+    return any(
+        isinstance(stage, dict)
+        and stage.get("implemented") is True
+        and isinstance(stage.get("id"), str)
+        and stage["id"].startswith("MTL-")
+        for stage in stages
+    )
+
+
+def compiler_self_test(compiler):
+    if compiler is None:
+        print("  [SKIP] C11 compiler self-test (cc not found)")
+        return False
+    source = "#include <stdint.h>\nint main(void) { return 0; }\n"
+    try:
+        with tempfile.TemporaryDirectory(prefix="emulator-course-doctor-") as temp_dir:
+            temp = Path(temp_dir)
+            input_file = temp / "test.c"
+            output_file = temp / "test.bin"
+            input_file.write_text(source, encoding="utf-8")
+            result = subprocess.run(
+                [
+                    compiler,
+                    "-std=c11",
+                    "-Wall",
+                    "-Wextra",
+                    "-Werror",
+                    "-O1",
+                    "-g",
+                    str(input_file),
+                    "-o",
+                    str(output_file),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+    except FileNotFoundError:
+        print("  [FAIL] cc disappeared before C11 compiler self-test", file=sys.stderr)
+        return False
+    except subprocess.TimeoutExpired:
+        print("  [FAIL] C11 compiler self-test timed out", file=sys.stderr)
+        return False
+    except OSError as exc:
+        print(f"  [FAIL] could not run C11 compiler self-test: {exc}", file=sys.stderr)
+        return False
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip() or f"exit {result.returncode}"
+        print(f"  [FAIL] C11 compiler self-test: {detail}", file=sys.stderr)
+        return False
+    print("  [OK] C11 compiler self-test")
+    return True
+
 
 def main():
     print("doctor: validating development environment")
     print("")
     print("[required]")
-    ok = True
-    for cmd, args in REQUIRED:
-        if not check(cmd, args):
-            ok = False
-
-    # Verify C11 compilation works with current flags
-    print("")
-    print("[self-test: C11 compile]")
-    import tempfile, pathlib
-    src = "#include <stdint.h>\nint main(void){return 0;}\n"
-    with tempfile.TemporaryDirectory() as td:
-        c = pathlib.Path(td) / "t.c"
-        o = pathlib.Path(td) / "t.bin"
-        c.write_text(src)
-        proc = subprocess.run(["cc", "-std=c11", "-Wall", "-Wextra", "-Werror", "-O1", "-g", str(c), "-o", str(o)], capture_output=True, text=True)
-        if proc.returncode != 0:
-            print(f"  fail: C11 compile self-test: {proc.stderr.strip()}", file=sys.stderr)
-            ok = False
-        else:
-            print("  ok: C11 compile (cc -std=c11 -Wall -Wextra -Werror)")
-
-    # Optional Metal checks — only warn, don't fail, unless MLT stages are active
-    # We detect if course has generated MTL stages by looking for stage dirs
-    has_mtl = any(os.path.exists(os.path.join("course", "chip8", s, "STAGE.md")) for s in ["MTL-00", "MTL-01"])
-    has_mtl = has_mtl or os.path.exists("config/consoles/chip8.json") and "MTL" in open("config/consoles/chip8.json").read() if os.path.exists("config/consoles/chip8.json") else has_mtl
-    print("")
-    print("[optional: Metal toolchain]")
-    metal_ok = True
-    for cmd, args in OPTIONAL_METAL:
-        path = shutil.which(cmd)
-        if not path:
-            # only report as missing if MTL stages exist
-            if has_mtl:
-                print(f"  missing (optional for CHIP-8, required for Metal): {cmd}")
-                metal_ok = False
-            else:
-                print(f"  optional not found: {cmd} (ok for CHIP-8)")
-        else:
-            check(cmd, args)
+    required_paths = {}
+    healthy = True
+    for name, arguments in REQUIRED:
+        path = check_tool(name, arguments, required=True)
+        required_paths[name] = path
+        if path is None:
+            healthy = False
 
     print("")
-    if ok:
+    print("[self-test]")
+    if not compiler_self_test(required_paths.get("cc")):
+        healthy = False
+
+    print("")
+    print("[Metal toolchain]")
+    metal_required = metal_is_required()
+    for name, arguments in OPTIONAL_METAL:
+        path = check_tool(name, arguments, required=metal_required)
+        if metal_required and path is None:
+            healthy = False
+
+    print("")
+    if healthy:
         print("doctor: PASS — required tools present")
-        if not metal_ok and has_mtl:
-            print("doctor: note: Metal toolchain incomplete (needed for MTL tracks)", file=sys.stderr)
         return 0
-    else:
-        print("doctor: FAIL — missing required tools", file=sys.stderr)
-        return 1
+    print("doctor: FAIL — required tool or self-test unavailable", file=sys.stderr)
+    return 1
+
 
 if __name__ == "__main__":
     sys.exit(main())
