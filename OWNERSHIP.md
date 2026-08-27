@@ -5,6 +5,10 @@ and AI assistance cannot silently certify or complete student work.
 
 Keywords checked by `make verify-course`: `student-owned`, `agent-owned`, `grader-owned`.
 
+The path lists below are a human-readable mirror of the active-stage
+manifest's `ownership` object. The manifest is the sole machine-readable
+authority; update it first when ownership changes.
+
 ## Student-Owned (learner's implementation)
 ```
 src/**
@@ -21,15 +25,20 @@ renderer/**
 ## Agent / Course-Author-Owned
 
 ```
-course/**
-tests/visible/**      (tests/chip8/**)
-tests/challenge/**
-config/**
-tools/verify_course.py
-tools/doctor.py
+.github/workflows/**
+.gitignore
 Makefile
+OWNERSHIP.md
+README.md
+blueprint/**
+config/**
+course/**
 course.sh
-stage manifests       (course/<console>/<stage>/manifest.json)
+tests/chip8/**
+tests/challenge/**
+tools/doctor.py
+tools/test.h
+tools/verify_course.py
 ```
 
 - Stage specifications, visible and challenge tests, manifests, and authoring
@@ -41,7 +50,7 @@ stage manifests       (course/<console>/<stage>/manifest.json)
 
 ```
 tests/hidden/**
-tools/reference/**     (future: golden traces, oracle data)
+tools/reference/**
 ```
 
 - Certification tests and any reference implementations or golden traces.

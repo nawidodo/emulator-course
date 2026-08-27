@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Emulator course runner: stage management, test execution, progress.
-# Local only: no network, no git, no CI. State lives in .progress/state.
+# The runner performs no network or git operations. State lives in .progress/state.
 # Compatible with bash 3.2 (macOS system bash).
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

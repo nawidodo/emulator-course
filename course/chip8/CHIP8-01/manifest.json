@@ -18,15 +18,24 @@
       "renderer/**"
     ],
     "agent_owned": [
+      ".github/workflows/**",
+      ".gitignore",
+      "Makefile",
+      "OWNERSHIP.md",
+      "README.md",
+      "blueprint/**",
+      "config/**",
       "course/**",
+      "course.sh",
       "tests/chip8/**",
       "tests/challenge/**",
-      "config/**",
-      "tools/verify_course.py",
-      "tools/doctor.py"
+      "tools/doctor.py",
+      "tools/test.h",
+      "tools/verify_course.py"
     ],
     "grader_owned": [
-      "tests/hidden/**"
+      "tests/hidden/**",
+      "tools/reference/**"
     ]
   }
 }

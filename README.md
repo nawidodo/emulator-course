@@ -10,9 +10,9 @@ The AI is the instructor and reviewer; you write the emulator.
 
     make start          course status + command list
     make stage          show the active stage brief (STAGE.md)
-    make test           visible tests for all unlocked stages
+    make test           visible tests cumulatively through the active stage
     make challenge      challenge test for the active stage
-    make submit         certify stage (visible + challenge + hidden)
+    make submit         preflight + visible + challenge + certification
     make progress       per-stage progress
     make next           advance to the next unlocked stage
     make doctor         validate dev environment (cc, make, bash, python3)
@@ -100,12 +100,13 @@ directory, and ownership. `course.sh` contains no duplicate stage facts.
 
 ## Ownership & trust boundary
 
-See `OWNERSHIP.md` for the contract. Summary:
+See `OWNERSHIP.md` for the human-readable contract and the active-stage
+manifest for the exact machine-readable paths. Summary:
 
-- **Student-owned:** `src/**`, `platform/**`, `renderer/**`
-- **Agent-owned:** `course/**`, `tests/chip8/**`, `tests/challenge/**`,
-  `config/**`, `tools/verify_course.py`, manifests
-- **Grader-owned:** `tests/hidden/**` (future: reference impls, golden traces)
+- **Student-owned:** emulator/platform/renderer implementation
+- **Agent/course-author-owned:** course material, blueprints, visible and
+  challenge tests, tooling, configuration, documentation, and CI
+- **Grader-owned:** certification tests and future reference/oracle data
 
 ```
 COURSE AUTHOR → stage spec, starter, visible, challenge, grader → sealed stage
@@ -159,4 +160,5 @@ pseudocode → small fragment → full function` (last resort).
 - The CPU/reference path is the correctness oracle. Metal is added only
   once reference output is known correct, and is compared against it.
 - Keep dependencies minimal: Bash, Make, Python stdlib, C11.
-- No network, no git, no CI. Everything runs locally.
+- Course commands perform no network or git operations and run locally.
+  GitHub Actions repeats infrastructure validation on pushes and pull requests.
