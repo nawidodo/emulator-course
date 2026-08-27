@@ -452,7 +452,7 @@ HOST_TIME_BANNED_CALLS = (
     "time",
 )
 HOST_TIME_CALL_PATTERN = re.compile(
-    r"\b(?:" + "|".join(re.escape(name) for name in HOST_TIME_BANNED_CALLS) + r")\s*\("
+    r"\b(?P<call>" + "|".join(re.escape(name) for name in HOST_TIME_BANNED_CALLS) + r")\s*\("
 )
 
 
@@ -475,15 +475,19 @@ def validate_core_host_time_ban(catalog, reporter):
                 reporter.error(source.relative_to(ROOT), None, "readable core source", str(exc))
                 continue
             code_only = _strip_c_comments_and_strings(text)
-            for line_number, line in enumerate(code_only.splitlines(), start=1):
-                for match in HOST_TIME_CALL_PATTERN.finditer(line):
-                    call = match.group(0).split("(", 1)[0].strip()
-                    reporter.error(
-                        source.relative_to(ROOT),
-                        f"line {line_number}",
-                        "core source without host-time calls",
-                        f"{call} in: {line.strip()[:120]}",
-                    )
+            for match in HOST_TIME_CALL_PATTERN.finditer(code_only):
+                line_number = code_only.count("\n", 0, match.start()) + 1
+                line_start = text.rfind("\n", 0, match.start()) + 1
+                line_end = text.find("\n", match.start())
+                if line_end == -1:
+                    line_end = len(text)
+                source_line = text[line_start:line_end].strip()
+                reporter.error(
+                    source.relative_to(ROOT),
+                    f"line {line_number}",
+                    "core source without host-time calls",
+                    f"{match.group('call')} in: {source_line[:120]}",
+                )
     if not reporter.errors:
         reporter.ok("core host-time ban (blueprint v1.2.0 §4/§5)")
 
