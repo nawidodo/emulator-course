@@ -174,6 +174,7 @@ class CourseEngineRegressionTests(unittest.TestCase):
                 (suite_path / "test_passing.c").write_text(passing_test, encoding="utf-8")
 
             state = repository / ".progress/state"
+            state.parent.mkdir(parents=True, exist_ok=True)
             state.write_text(
                 "active=CHIP8-02\nCHIP8-01=certified\nCHIP8-02=active\n"
                 + "\n".join(
