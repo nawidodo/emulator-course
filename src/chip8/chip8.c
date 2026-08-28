@@ -53,9 +53,10 @@ void chip8_init(chip8 *m) {
     (void)font; // TODO(CHIP8-01): implement the full deterministic reset.
 }
 
-// Challenge: deterministic FNV-1a 32-bit checksum over the ENTIRE machine
-// state, in the exact byte order documented in STAGE.md. Every field must be
-// included — omitting even one register lets undetected bugs through.
+// Challenge: deterministic FNV-1a 32-bit fingerprint over the complete
+// Stage-01 Fingerprint Schema V1 state, in the exact byte order documented in
+// STAGE.md. Every V1 field must be included — omitting even one register lets
+// undetected bugs through.
 //
 // Return 0u until you implement it; tests then fail loudly instead of lying.
 uint32_t chip8_state_checksum(const chip8 *m) {

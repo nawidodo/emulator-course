@@ -57,7 +57,6 @@ static void test_checksum_sensitivity(void) {
     CHECK_NE(chip8_state_checksum(&a), chip8_state_checksum(&b));
     // and the high byte of a stack entry
     b = a;
-    b.SP = 1;
     b.stack[0] = 0x0200;
     CHECK_NE(chip8_state_checksum(&a), chip8_state_checksum(&b));
     // and a key press

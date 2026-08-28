@@ -81,8 +81,9 @@ typedef struct {
 // Fonts are part of the canonical power-on state (installed at 0x050).
 void chip8_init(chip8 *m);
 
-// Deterministic 32-bit checksum over the full machine state. Byte order is
-// specified in STAGE.md (challenge). Used by tests/graders as a fingerprint.
+// Deterministic 32-bit fingerprint implementing immutable Stage-01
+// Fingerprint Schema V1. Exact serialized fields and byte order are specified
+// in STAGE.md (challenge); future VM fields do not alter this V1 schema.
 uint32_t chip8_state_checksum(const chip8 *m);
 
 #endif // CHIP8_H
