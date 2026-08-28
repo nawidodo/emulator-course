@@ -113,6 +113,32 @@ class CourseEngineRegressionTests(unittest.TestCase):
 
         self.assert_rejected(mutate)
 
+    def test_rand_call_in_core_is_rejected(self):
+        def mutate(repository):
+            path = repository / "src/chip8/chip8.c"
+            original = path.read_text(encoding="utf-8")
+            path.write_text(
+                "#include <stdlib.h>\n"
+                + original
+                + "\nunsigned review_host_rng(void) { return (unsigned)rand(); }\n",
+                encoding="utf-8",
+            )
+
+        self.assert_rejected(mutate)
+
+    def test_arc4random_call_in_core_is_rejected(self):
+        def mutate(repository):
+            path = repository / "src/chip8/chip8.c"
+            original = path.read_text(encoding="utf-8")
+            path.write_text(
+                "extern unsigned int arc4random(void);\n"
+                + original
+                + "\nunsigned review_host_rng(void) { return arc4random(); }\n",
+                encoding="utf-8",
+            )
+
+        self.assert_rejected(mutate)
+
     def test_overlapping_ownership_pattern_is_rejected(self):
         def mutate(repository):
             path = repository / "course/chip8/CHIP8-01/manifest.json"

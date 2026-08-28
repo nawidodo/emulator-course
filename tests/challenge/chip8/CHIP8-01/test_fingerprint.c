@@ -71,8 +71,26 @@ static void test_every_probe_moves_the_fingerprint_and_resets_back(void) {
     }
 }
 
-// Max-value dirtying in ONE shot: every byte becomes 0xFF including timers,
-// stack, keypad bitmap; then reset must reproduce the pristine fingerprint.
+static void make_valid_dirty_state(chip8 *m) {
+    size_t i;
+
+    for (i = 0; i < sizeof(m->V); i++)
+        m->V[i] = 0xFF;
+    m->PC = 0xFFFF;
+    m->I = 0xFFFF;
+    m->SP = CHIP8_STACK_DEPTH;
+    for (i = 0; i < CHIP8_STACK_DEPTH; i++)
+        m->stack[i] = 0xFFFF;
+    m->delay_timer = 0xFF;
+    m->sound_timer = 0xFF;
+    m->rng_state = 0xFFFFFFFFu;
+    memset(m->memory, 0xFF, sizeof(m->memory));
+    for (i = 0; i < sizeof(m->keypad) / sizeof(m->keypad[0]); i++)
+        m->keypad[i] = true;
+    memset(m->framebuffer, 1, sizeof(m->framebuffer));
+}
+
+// Dirtify every field with valid typed values, then reset to the V1 baseline.
 static void test_full_dirty_then_restore_round_trip(void) {
     chip8 m;
     uint32_t baseline, dirty;
@@ -80,7 +98,7 @@ static void test_full_dirty_then_restore_round_trip(void) {
     chip8_init(&m);
     baseline = chip8_state_checksum(&m);
 
-    memset(&m, 0xFF, sizeof(m));
+    make_valid_dirty_state(&m);
     dirty = chip8_state_checksum(&m);
     CHECK_NE(dirty, baseline); // sanity: fingerprint really notices garbage
 

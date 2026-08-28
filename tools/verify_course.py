@@ -26,6 +26,7 @@ COURSE_CONFIG = Path("config/course.json")
 OWNERSHIP_CATEGORIES = ("student_owned", "agent_owned", "grader_owned")
 CHIP8_STACK_DEPTH = 12
 CHIP8_RNG_SEED = 0xC0FFEE01
+CHIP8_FINGERPRINT_SCHEMA = "Stage-01 Fingerprint Schema V1"
 
 
 class Reporter:
@@ -486,6 +487,8 @@ def validate_chip8_01_facts(catalog, reporter):
             ("rng_state", "deterministic RNG state"),
             ("CHIP8_RNG_SEED", "deterministic RNG seed"),
             ("xorshift32", "documented deterministic PRNG"),
+            (CHIP8_FINGERPRINT_SCHEMA, "versioned Stage-01 fingerprint schema"),
+            ("low 8 bits", "frozen CXNN byte mapping"),
         )
         for expected, label in expected_facts:
             if expected not in text:
@@ -499,6 +502,8 @@ def validate_chip8_01_facts(catalog, reporter):
             ("16 levels", "obsolete 16-level stack wording"),
             ("16 entries", "obsolete 16-entry stack wording"),
             (legacy_stack, "obsolete 16-entry stack wording"),
+            ("never touched by the course VM", "overstated memory-protection wording"),
+            ("entire address space of the original machine family", "overstated address-space wording"),
         ):
             if forbidden in text:
                 reporter.error(stage_doc.relative_to(ROOT), "content", f"without {label}", forbidden)
@@ -521,18 +526,26 @@ HOST_TIME_BANNED_CALLS = (
     "gettimeofday",
     "time",
 )
+CORE_RNG_BANNED_CALLS = (
+    "rand",
+    "srand",
+    "random",
+    "srandom",
+    "arc4random",
+    "arc4random_uniform",
+    "getentropy",
+    "SecRandomCopyBytes",
+)
 HOST_TIME_CALL_PATTERN = re.compile(
     r"\b(?P<call>" + "|".join(re.escape(name) for name in HOST_TIME_BANNED_CALLS) + r")\s*\("
 )
+CORE_RNG_CALL_PATTERN = re.compile(
+    r"\b(?P<call>" + "|".join(re.escape(name) for name in CORE_RNG_BANNED_CALLS) + r")\s*\("
+)
 
 
-def validate_core_host_time_ban(catalog, reporter):
-    """Blueprint v1.2.0 §4/§5: the deterministic core must never read host time.
-
-    Scans .c and .h files in every console core with implemented stages.
-    Comments and literals are removed before matching, preserving line
-    numbers. Any code-position hit rejects verification.
-    """
+def _validate_core_banned_calls(catalog, reporter, pattern, requirement):
+    """Reject banned nondeterministic APIs in implemented console cores."""
     for console_id, console in catalog["consoles"].items():
         if not any(stage["implemented"] for stage in console["stages"]):
             continue
@@ -545,7 +558,7 @@ def validate_core_host_time_ban(catalog, reporter):
                 reporter.error(source.relative_to(ROOT), None, "readable core source", str(exc))
                 continue
             code_only = _strip_c_comments_and_strings(text)
-            for match in HOST_TIME_CALL_PATTERN.finditer(code_only):
+            for match in pattern.finditer(code_only):
                 line_number = code_only.count("\n", 0, match.start()) + 1
                 line_start = text.rfind("\n", 0, match.start()) + 1
                 line_end = text.find("\n", match.start())
@@ -555,11 +568,31 @@ def validate_core_host_time_ban(catalog, reporter):
                 reporter.error(
                     source.relative_to(ROOT),
                     f"line {line_number}",
-                    "core source without host-time calls",
+                    f"core source without {requirement}",
                     f"{match.group('call')} in: {source_line[:120]}",
                 )
+
+
+def validate_core_host_time_ban(catalog, reporter):
+    _validate_core_banned_calls(
+        catalog,
+        reporter,
+        HOST_TIME_CALL_PATTERN,
+        "host-time calls",
+    )
     if not reporter.errors:
         reporter.ok("core host-time ban (blueprint v1.2.0 §4/§5)")
+
+
+def validate_core_rng_ban(catalog, reporter):
+    _validate_core_banned_calls(
+        catalog,
+        reporter,
+        CORE_RNG_CALL_PATTERN,
+        "nondeterministic RNG calls",
+    )
+    if not reporter.errors:
+        reporter.ok("core nondeterministic-RNG ban")
 
 
 def _strip_c_comments_and_strings(text):
@@ -640,6 +673,7 @@ def verify_course():
             reporter.skip("test compilation (no valid implemented stage assets)")
         validate_chip8_01_facts(catalog, reporter)
         validate_core_host_time_ban(catalog, reporter)
+        validate_core_rng_ban(catalog, reporter)
 
     validate_ownership_document(reporter)
     print("")

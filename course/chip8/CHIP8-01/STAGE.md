@@ -56,12 +56,17 @@ Treat this table as the spec. The code is filled in from it.
 Course memory-map convention:
 
 ```text
-0x000-0x04F   reserved - never touched by the course VM
+0x000-0x04F   reserved by the course memory-layout convention;
+               the ROM loader does not place program bytes here
 0x050-0x09F    80 B   font sprites (chars 0-F, 5 bytes each), installed
                      INTO MEMORY BY chip8_init as part of canonical power-on
-0x0A0-0x1FF   reserved - interpreter region, programs never load here
+0x0A0-0x1FF   reserved interpreter/course area; not part of normal ROM loading
 0x200-0xFFF   program area (ROM lands here in stage CHIP8-02)
 ```
+
+These are loader/reset conventions, not guest memory protection. CHIP-8 guest
+instructions and future memory operations may still address any valid guest
+address.
 
 Font bytes are provided in `src/chip8/chip8.c`; installing them during reset
 is your job. Fonts are part of the canonical power-on state, so the state
@@ -93,10 +98,17 @@ x ^= x >> 17
 x ^= x << 5
 ```
 
-All operations wrap at 32 bits. The core must not call `rand`, `random`,
-`arc4random`, host entropy, or a wall clock. Tests and replays may set a known
-seed/state explicitly; a host frontend may choose a different explicit seed
-only through a future API.
+All operations wrap at 32 bits. The course's deterministic `CXNN` mapping is
+fixed now, even though the opcode is implemented later:
+
+1. Advance `rng_state` with xorshift32.
+2. Take the low 8 bits of the new `rng_state`.
+3. AND that byte with `NN`.
+4. Store the result in `VX`.
+
+The core must not call `rand`, `random`, `arc4random`, host entropy, or a wall
+clock. Tests and replays may set a known seed/state explicitly; a host frontend
+may choose a different explicit seed only through a future API.
 
 ## Error philosophy
 
@@ -106,8 +118,9 @@ fetch bounds, and unsupported-opcode PC policy belong to CHIP8-03.
 
 ## Why these sizes
 
-- 4 KiB of RAM was the entire address space of the original machine family;
-  16-bit `PC` and `I` address it directly.
+- The course CHIP-8 VM exposes guest memory addresses `0x000..0xFFF`.
+  `PC` and `I` are stored in 16-bit C integer types, but valid guest memory
+  addresses for this VM lie in that 4 KiB range.
 - The call stack is **12 levels deep**, matching the historical COSMAC VIP
   baseline used by the blueprint. The default course profile uses
   `CHIP8_STACK_DEPTH = 12`; tests and later stack stages must use this value.
@@ -132,6 +145,16 @@ fetch bounds, and unsupported-opcode PC policy belong to CHIP8-03.
    must pass.
 4. Challenges A and B; `make challenge` must pass both.
 5. `make submit` — certification.
+
+## Stage-01 Fingerprint Schema V1
+
+`chip8_state_checksum` implements the immutable **Stage-01 Fingerprint Schema
+V1**. Its serialized fields, field order, and byte order are frozen by the
+Challenge A specification below.
+
+Future deterministic VM fields must not be appended to or otherwise alter V1.
+Later stages may define a separately versioned fingerprint or save-state
+schema, while Stage-01 vectors and cumulative certification continue to use V1.
 
 ## Challenge A — deterministic state checksum
 
