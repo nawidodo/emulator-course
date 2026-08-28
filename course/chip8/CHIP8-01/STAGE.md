@@ -85,6 +85,20 @@ later stage introduces behavior that needs them. When added, they must become
 explicit VM state and follow the same reset, checksum, save-state, and replay
 rules.
 
+## Stack pointer convention
+
+`SP` is the number of occupied stack entries and the next-free stack
+position. It is valid in the inclusive range `0..CHIP8_STACK_DEPTH`:
+
+```text
+empty: SP = 0
+push:  require SP < 12, write stack[SP], then increment SP
+pop:   require SP > 0, decrement SP, then read stack[SP]
+```
+
+The overflow/underflow result and failed-operation PC/state commit rules belong
+to the future subroutine stage and must be frozen before that stage is authored.
+
 ## RNG policy
 
 `rng_state` is explicit state inside the deterministic VM. `chip8_init` resets
@@ -181,6 +195,9 @@ Byte order is exactly:
 
 The `rng_state` word is serialized big-endian. The checksum therefore covers
 every deterministic guest-state field, including the future random stream.
+FNV-1a is course/test instrumentation for deterministic fingerprints, not
+behavior performed by CHIP-8 hardware and not a cryptographic integrity
+mechanism.
 
 Note steps 7-10: timers, RNG state, and keypad are part of the machine's
 identity. Save states, scheduler replays, random-instruction tests and
@@ -191,9 +208,9 @@ Implement from this spec — not by working backwards from test constants.
 
 ## Challenge B — mutation matrix
 
-`tests/challenge/chip8/CHIP8-01/test_fingerprint.c` mutates one field at a
-time (index register, late stack entry, RNG state, VF flag register, PC,
-memory edges, first/last key, framebuffer corners, and yes - both timers),
+`tests/challenge/chip8/CHIP8-01/test_fingerprint.c` mutates one semantic field
+at a time (V0, VF, index register, PC, SP, first/last stack entry, RNG state,
+font/high/low memory, first/last key, framebuffer corners, and both timers),
 demands each mutation moves the fingerprint, then re-inits and demands an
 EXACT restore. Forgetting any field lets one probe slip past its restore check.
 Implement Challenge A completely and B passes for free - that is the point: B

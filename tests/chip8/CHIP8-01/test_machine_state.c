@@ -33,6 +33,7 @@ static void test_size(void) {
     CHECK_EQ(sizeof(m.V), 16);          // V0..VF
     CHECK_EQ(sizeof(m.framebuffer), 64 * 32); // teaching rep: one byte per pixel (2048); logical is 256 bytes
     CHECK_EQ(sizeof(m.stack), CHIP8_STACK_DEPTH * sizeof(uint16_t));
+    CHECK_EQ(CHIP8_STACK_DEPTH, 12);
     CHECK_EQ(sizeof(m.rng_state), sizeof(uint32_t));
 }
 
@@ -52,6 +53,8 @@ static void test_power_on_state(void) {
     CHECK_EQ(m.PC, 0x0200);
     CHECK_EQ(m.I, 0);
     CHECK_EQ(m.SP, 0);
+    for (i = 0; i < CHIP8_STACK_DEPTH; i++)
+        CHECK_EQ(m.stack[i], 0);
     CHECK_EQ(m.delay_timer, 0);
     CHECK_EQ(m.sound_timer, 0);
     CHECK_EQ(m.rng_state, CHIP8_RNG_SEED);
@@ -61,6 +64,7 @@ static void test_power_on_state(void) {
 
 static void test_reinit_clears_dirty_state(void) {
     chip8 m;
+    unsigned i;
     chip8_init(&m);
     // dirtify every field
     memset(&m, 0xAB, sizeof(m));
@@ -80,13 +84,13 @@ static void test_reinit_clears_dirty_state(void) {
     CHECK_EQ(m.PC, 0x0200);
     CHECK_EQ(m.I, 0);
     CHECK_EQ(m.SP, 0);
-    CHECK_EQ(m.stack[7], 0);
+    for (i = 0; i < CHIP8_STACK_DEPTH; i++)
+        CHECK_EQ(m.stack[i], 0);
     CHECK_EQ(m.delay_timer, 0);
     CHECK_EQ(m.sound_timer, 0);
     CHECK_EQ(m.rng_state, CHIP8_RNG_SEED);
     CHECK_EQ(m.keypad[9], 0);
     CHECK_EQ(m.framebuffer[0][0], 0);
-    unsigned i;
     for (i = 0; i < sizeof(m.memory); i++) {
         uint8_t expected = 0;
         if (i >= 0x050 && i < 0x0A0) expected = expected_font[i - 0x050];
