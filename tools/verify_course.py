@@ -27,6 +27,7 @@ OWNERSHIP_CATEGORIES = ("student_owned", "agent_owned", "grader_owned")
 CHIP8_STACK_DEPTH = 12
 CHIP8_RNG_SEED = 0xC0FFEE01
 CHIP8_FINGERPRINT_SCHEMA = "Stage-01 Fingerprint Schema V1"
+CHIP8_FONT_SIZE = 80
 
 
 class Reporter:
@@ -441,6 +442,22 @@ def validate_ownership_document(reporter):
         reporter.ok("ownership boundaries and Markdown fences")
 
 
+HEX_BYTE_PATTERN = re.compile(r"0x[0-9A-Fa-f]{2}\b")
+
+
+def extract_c_byte_array(text, declaration):
+    """Return the hex byte literals of the C array whose declaration contains
+    `declaration` (comments and string contents stripped first), or None."""
+    stripped = _strip_c_comments_and_strings(text)
+    start = stripped.find(declaration)
+    if start < 0:
+        return None
+    end = stripped.find("};", start)
+    if end < 0:
+        return None
+    return HEX_BYTE_PATTERN.findall(stripped[start:end])
+
+
 def validate_chip8_01_facts(catalog, reporter):
     console = catalog["consoles"].get("chip8")
     if console is None or "CHIP8-01" not in console["stage_index"]:
@@ -470,15 +487,16 @@ def validate_chip8_01_facts(catalog, reporter):
         ):
             if forbidden in text:
                 reporter.error(header.relative_to(ROOT), "content", f"without {label}", forbidden)
+    source_text = None
     if source.is_file():
-        text = source.read_text(encoding="utf-8")
+        source_text = source.read_text(encoding="utf-8")
         for forbidden, label in (
             ("chip8_load_font", "Stage02 font-loader API"),
             ("chip8_load_rom", "Stage02 ROM-loader API"),
             ("TODO(CHIP8-02)", "Stage02 learner TODO"),
             ("Stage CHIP8-02", "Stage02 learner material"),
         ):
-            if forbidden in text:
+            if forbidden in source_text:
                 reporter.error(source.relative_to(ROOT), "content", f"without {label}", forbidden)
     if stage_doc.is_file():
         text = stage_doc.read_text(encoding="utf-8")
@@ -507,6 +525,50 @@ def validate_chip8_01_facts(catalog, reporter):
         ):
             if forbidden in text:
                 reporter.error(stage_doc.relative_to(ROOT), "content", f"without {label}", forbidden)
+    # The 80-byte canonical font table exists in two hand-maintained places:
+    # the starter (src/chip8/chip8.c) and the visible suite
+    # (tests/chip8/CHIP8-01/test_machine_state.c). They must stay in sync.
+    if source_text is not None:
+        visible_test_path = repo_path("tests/chip8/CHIP8-01/test_machine_state.c")
+        starter_font = extract_c_byte_array(source_text, "uint8_t font[")
+        visible_font = None
+        if visible_test_path.is_file():
+            visible_font = extract_c_byte_array(
+                visible_test_path.read_text(encoding="utf-8"),
+                "uint8_t expected_font[",
+            )
+        if starter_font is None:
+            reporter.error(
+                source.relative_to(ROOT), "content",
+                "80-byte canonical font table", "missing or unreadable",
+            )
+        elif visible_font is None:
+            reporter.error(
+                visible_test_path.relative_to(ROOT), "content",
+                "80-byte expected-font table", "missing or unreadable",
+            )
+        elif len(starter_font) != CHIP8_FONT_SIZE:
+            reporter.error(
+                source.relative_to(ROOT), "content",
+                "80-byte canonical font table", f"{len(starter_font)} bytes",
+            )
+        elif len(visible_font) != CHIP8_FONT_SIZE:
+            reporter.error(
+                visible_test_path.relative_to(ROOT), "content",
+                "80-byte expected-font table", f"{len(visible_font)} bytes",
+            )
+        elif starter_font != visible_font:
+            index = next(
+                i for i, (a, b) in enumerate(zip(starter_font, visible_font)) if a != b
+            )
+            reporter.error(
+                visible_test_path.relative_to(ROOT), "content",
+                "font table matching src/chip8/chip8.c",
+                f"first differing byte at index {index}",
+            )
+        else:
+            reporter.ok("font table sync (starter vs visible suite)")
+
     if not reporter.errors:
         reporter.ok("CHIP8-01 factual invariants")
 

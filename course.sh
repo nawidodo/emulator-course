@@ -233,6 +233,12 @@ build_one() { # $1 = test source path
       "$src" "${core[@]}" -o "$out" 2> "$out.err"; then
     echo "  BUILD FAIL: $(basename "$src")"
     sed 's/^/    /' "$out.err"
+    if grep -q "duplicate symbol\|multiple definition of" "$out.err"; then
+      echo "    HINT: a file in src/$CONSOLE/ likely redefines a symbol (main()"
+      echo "          is the usual suspect). Suite binaries provide their own"
+      echo "          main(); keep scratch or manual-test programs outside"
+      echo "          src/$CONSOLE/ so the suites can link."
+    fi
     rm -f "$out.err"
     return 1
   fi
@@ -362,6 +368,10 @@ cmd_test() {
     echo "VISIBLE TESTS: PASS"
   else
     echo "VISIBLE TESTS: FAIL (see above)"
+    echo ""
+    echo "NOTE: if the active stage's TODOs are not implemented yet, these"
+    echo "      failures are expected — suites never pass vacuously."
+    echo "      Read the stage brief: make stage"
   fi
   return $rc
 }
@@ -381,6 +391,8 @@ cmd_challenge() {
     echo "CHALLENGE: PASS"
   else
     echo "CHALLENGE: FAIL (see above)"
+    echo ""
+    echo "NOTE: challenges stay red until the stage is fully implemented."
   fi
   return $rc
 }
@@ -405,6 +417,13 @@ cmd_submit() {
   local active next rc=0
   active=$(active_stage)
   echo "SUBMIT: $CONSOLE_TITLE $active"
+  echo ""
+  echo "Running full course validation (fail-closed)..."
+  if ! cmd_verify_course; then
+    echo "COURSE VALIDATION: FAIL"
+    echo "NOT CERTIFIED: course infrastructure is incomplete or invalid"
+    return 1
+  fi
   echo ""
   echo "Running structural preflight..."
   if ! preflight_stage "$active"; then

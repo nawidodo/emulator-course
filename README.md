@@ -29,9 +29,10 @@ remaining CHIP-8 stages and the 8-stage Metal track remain roadmap entries.
   tests you may read while working.
 - **`make challenge`** — runs the active-stage manifest's challenge suite.
   It is a less-guided, deterministic checksum / integration check.
-- **`make submit`** — first runs active-stage structural preflight, then
-  visible and challenge suites, followed by all certification suites from
-  stages 01 through the active stage. Only `make submit` has **certification
+- **`make submit`** — first runs full course-material validation (fail-closed),
+  then the active-stage structural preflight, then visible and challenge
+  suites, followed by all certification suites from stages 01 through the
+  active stage. Only `make submit` has **certification
   authority**: AI opinion (`"looks correct"`) never certifies; only
   `grader success == certification`. On PASS the stage is marked `certified`
   and the next stage is `unlocked`; run `make next` to activate it.
@@ -56,6 +57,10 @@ remaining CHIP-8 stages and the 8-stage Metal track remain roadmap entries.
 4. `make challenge` — must pass
 5. `make submit` — certifies and unlocks the next stage
 6. `make next`
+
+Suites never pass vacuously: on a fresh stage, every suite fails loudly until
+the stage's TODOs are implemented. Red suites at the start of a stage are the
+loop working, not a broken course.
 
 ## Stage lifecycle
 
@@ -89,7 +94,9 @@ directory, and ownership. `course.sh` contains no duplicate stage facts.
 
 ## Layout
 
-    src/chip8/               emulator core (pure C, no I/O, no Metal) — student-owned
+    src/chip8/               emulator core (pure C, no I/O, no Metal, no main())
+                             — student-owned; suite binaries provide their own
+                               main(), so keep scratch/manual programs outside src/
     tests/chip8/             visible per-stage tests — agent-owned
     tests/challenge/         per-stage challenge tests — agent-owned
     tests/hidden/            certification tests — grader-owned (do not read while working)
@@ -147,6 +154,22 @@ RESCUE MODE
 
 The tutor then escalates hints: `concept → subsystem → debugging experiment →
 pseudocode → small fragment → full function` (last resort).
+
+## Working with your tutor
+
+Ask for help in escalating levels, and stop at the level that unblocks you:
+
+    1. concept      explain the idea you are stuck on (start here)
+    2. subsystem    which part of the machine is involved
+    3. experiment   a concrete observation or debugging experiment
+    4. pseudocode   structure without real code
+    5. fragment     a small, targeted code fragment
+    6. function     a full function — last resort only
+
+Example ask: "Level 3 hint for the checksum: what experiment would show
+whether my byte order is wrong?" The tutor may read your source and test
+output and explain failures, but only `make submit` certifies; a tutor's
+"looks correct" never counts.
 
 ## Adding a future stage (for course authors)
 
